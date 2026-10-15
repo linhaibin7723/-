@@ -20,8 +20,8 @@ jobs:
           [ -f assets/icon-only.png ] || { mkdir -p assets; cp icon-only.png assets/; }
       - name: 安装依赖并生成安卓项目
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          npm install -D @capacitor/assets
+          npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/android @capacitor-community/text-to-speech
+          npm install -D --legacy-peer-deps @capacitor/assets
           npx cap add android
           npx capacitor-assets generate --android
           npx cap sync android
