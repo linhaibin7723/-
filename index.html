@@ -296,7 +296,7 @@ function sheet(en,zh){
   };
   $("aC").onclick=function(){try{navigator.clipboard.writeText(en)}catch(e){}$("mask").classList.add("hide")};
 }
-$("mask").onclick=function(e){if(e.target===this)this.classList.add("hide")};
+$("mask").onclick=function(e){if(e.target===this){this.classList.add("hide");render()}};
 document.addEventListener("click",function(e){
   var t=e.target.closest&&e.target.closest(".pb,.fb"),s=t&&t.closest(".s");
   if(!s)return;
@@ -358,7 +358,8 @@ $("bSet").onclick=function(){
   '<div class="lb">AI 服务</div><select id="aprov" class="sel"><option value="zhipu">智谱 GLM</option><option value="anthropic">Anthropic Claude</option></select>'+
   '<div class="lb">API Key（只保存在这个手机里）</div><input id="akey" class="sel" type="password" autocomplete="off" value="'+esc(cfg.key)+'">'+
   '<div class="lb">文字模型</div><input id="atxt" class="sel" value="'+esc(cfg.text||P[cfg.prov].text)+'">'+
-  '<div class="lb">图片模型（识别视频字幕用）</div><input id="avis" class="sel" value="'+esc(cfg.vis||P[cfg.prov].vis)+'">';
+  '<div class="lb">图片模型（识别视频字幕用）</div><input id="avis" class="sel" value="'+esc(cfg.vis||P[cfg.prov].vis)+'">'+
+  '<div class="acts"><button id="atest">测试连接</button><button id="asave" class="on">保存并关闭</button></div><div class="zh" id="astat" style="margin-top:8px"></div>';
   $("mask").classList.remove("hide");
   $("vsel").onchange=function(){
     voice=voices.filter(function(v){return v.name===$("vsel").value})[0]||null;
@@ -376,6 +377,14 @@ $("bSet").onclick=function(){
   $("akey").oninput=function(){cfg.key=this.value.trim();apiKey=cfg.key;saveCfg()};
   $("atxt").oninput=function(){cfg.text=this.value.trim();saveCfg()};
   $("avis").oninput=function(){cfg.vis=this.value.trim();saveCfg()};
+  $("asave").onclick=function(){$("mask").classList.add("hide");render()};
+  $("atest").onclick=function(){
+    var st=$("astat");st.textContent="测试中…";
+    sample.json('只返回 JSON，不要其他文字：{"ok":true}').then(function(){st.textContent="✓ 连接成功，可以用了"}).catch(function(e){
+      var d=(e&&e.detail)||"";
+      st.textContent="✗ "+(e&&e.code==="not_granted"?"Key 没填或不对"+(d?"（"+d+"）":""):(d||"出错了"));
+    });
+  };
 };
 /* 视频字幕 */
 var vsubs=[],nowI=-1,scanning=false,vurl=null;
