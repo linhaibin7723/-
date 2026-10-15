@@ -1,0 +1,8 @@
+{
+  "appId": "com.example.kouyu",
+  "appName": "口语句库",
+  "webDir": "www",
+  "plugins": {
+    "CapacitorHttp": { "enabled": true }
+  }
+}
