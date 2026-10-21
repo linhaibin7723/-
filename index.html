@@ -92,6 +92,22 @@ textarea:focus{outline:0;border-color:var(--acc)}
 .cardbox .hint{margin-top:22px}
 .cardbox .cnt{margin-bottom:14px;font-size:13px}
 @keyframes pop{from{opacity:0;transform:scale(.97)}}
+.modes{display:flex;gap:8px;padding:8px 12px 0;overflow-x:auto;background:var(--glass);border-top:.5px solid var(--bd);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+.mode{flex:none;padding:7px 15px;border-radius:999px;background:var(--card);border:.5px solid var(--bd);font-size:14px}
+.mode.on{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+.inp{border-top:0}
+.hl,.hlb{background:var(--hl);color:var(--acc);padding:2px 11px;border-radius:13px;font-weight:600;display:inline-block;line-height:1.5;margin:1px 2px;cursor:pointer}
+.hlb{cursor:default;font-size:24px;padding:7px 18px;border-radius:18px}
+.hl:active{opacity:.6}
+.a p{margin:7px 0}
+.big{font-size:20px}
+.zt{color:var(--mut);font-size:15px}
+.mask.c{align-items:center;padding:24px}
+.pop{width:100%;max-width:420px;background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(24px);backdrop-filter:saturate(180%) blur(24px);border:.5px solid var(--bd);border-radius:26px;padding:22px 20px 16px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.prow{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:20px}
+.prow button{padding:10px 14px;border-radius:999px;font-size:15px}
+#psp{color:var(--acc);font-weight:600}
+.pfav{background:var(--card);font-weight:600}
 .hide{display:none}
 </style>
 </head>
@@ -102,6 +118,7 @@ textarea:focus{outline:0;border-color:var(--acc)}
   <span><button class="ib" id="bSet" aria-label="朗读设置">⚙️</button><button class="ib" id="bVid" aria-label="视频字幕">🎬</button><button class="ib" id="bNew" aria-label="新对话">🗑</button></span>
 </header>
 <div id="chat"></div>
+<div class="modes"><button class="mode on" data-m="say">英语怎么说</button><button class="mode" data-m="mean">什么意思</button><button class="mode" data-m="chat">💬 对话</button></div>
 <div class="inp">
   <textarea id="q" rows="1" placeholder="想说什么？用中文问，或贴英文…"></textarea>
   <button id="send" aria-label="发送">➤</button>
@@ -119,9 +136,9 @@ textarea:focus{outline:0;border-color:var(--acc)}
   <div class="vb">
     <label class="tab">🎬 选视频<input type="file" id="vf" accept="video/*" hidden></label>
     <label class="tab">📄 导入字幕<input type="file" id="sf" accept=".srt,.vtt" hidden></label>
-    <button class="tab on" id="scan">🔍 AI 识别画面字幕</button>
+    <button class="tab on" id="scan">🤖 AI 识别字幕</button>
   </div>
-  <div class="vst" id="vst">选一个视频。有 .srt/.vtt 字幕文件就导入；没有的话，AI 会从当前播放位置起识别画面里的字幕。</div>
+  <div class="vst" id="vst">选一个视频，AI 会自动识别画面里的字幕（需要先在 ⚙️ 填好 Key）。有 .srt/.vtt 字幕文件的话，导入更准。</div>
   <div id="vl"></div>
 </div>
 <div class="ov hide" id="card">
@@ -129,6 +146,7 @@ textarea:focus{outline:0;border-color:var(--acc)}
   <div class="cwrap"><div class="cardbox" id="cbox"></div></div>
   <div class="lp"><button class="g" id="cSay">🔊 再听一次</button><button id="cNext">下一张 ➜</button></div>
 </div>
+<div class="mask c hide" id="pmask"><div class="pop" id="pop"></div></div>
 <div class="mask hide" id="mask"><div class="sheet" id="sheet"></div></div>
 
 <script>
@@ -190,22 +208,57 @@ function isFav(en){return favs.some(function(f){return f.en===en})}
 var SUGG=["你吃了吗？","我有点累了","能再说一遍吗？","我马上就到"];
 function AC(en){var f=isFav(en);return '<div class="ac"><button class="pb" aria-label="朗读">🔊</button><button class="fb'+(f?' on':'')+'" aria-label="收藏">'+(f?'★':'☆')+'</button></div>'}
 function S(en,zh){return '<div class="s" data-en="'+esc(en)+'" data-zh="'+esc(zh||"")+'"><div class="tx"><div class="en">'+esc(en)+'</div>'+(zh?'<div class="zh">'+esc(zh)+'</div>':'')+'</div>'+AC(en)+'</div>'}
-function aiHtml(r){
-  var h='<div class="a">'+S(r.en,r.zh);
-  if(r.note)h+='<div class="note">'+esc(r.note)+'</div>';
-  if(r.vocab&&r.vocab.length){h+='<div class="lb">关键词</div>'+r.vocab.map(function(v){return '<div><b>'+esc(v.w)+'</b>　'+esc(v.m)+'</div>'}).join("")}
-  if(r.examples&&r.examples.length){h+='<div class="lb">例句</div>'+r.examples.map(function(x){return S(x.en,x.zh)}).join("")}
-  if(r.replies&&r.replies.length){h+='<div class="lb">别人这么说，你可以这么回</div>'+r.replies.map(function(x){return S(x,"")}).join("")}
+function pill(en,zh){if(/[\u4e00-\u9fff]/.test(en)||!/[A-Za-z]/.test(en))return esc(en);return '<span class="hl" data-en="'+esc(en)+'" data-zh="'+esc(zh||"")+'">'+esc(en)+'</span>'}
+function hlText(t){
+  t=String(t==null?"":t);
+  var out="",last=0,m,re=/[A-Za-z][A-Za-z0-9'’\-]*(?:[ ,]+[A-Za-z0-9'’\-]+)*[.!?]?/g;
+  while((m=re.exec(t))){
+    if(m[0].length<2)continue;
+    out+=esc(t.slice(last,m.index))+pill(m[0],"");last=m.index+m[0].length;
+  }
+  return out+esc(t.slice(last));
+}
+function aiHtml(r,md){
+  var h='<div class="a">';
+  if(md==="chat"){
+    if(r.fix&&r.fix.en)h+='<div class="lb">更自然的说法</div><p>'+pill(r.fix.en,r.fix.note)+'</p>'+(r.fix.note?'<p class="zt">'+hlText(r.fix.note)+'</p>':'');
+    return h+'<p class="big">'+pill(r.en,r.zh)+'</p><p class="zt">'+esc(r.zh)+'</p></div>';
+  }
+  if(md==="mean")h+='<div class="lb">原句</div>';
+  if(r.mine&&r.mine.en)h+='<div class="lb">你的原句</div><p>'+pill(r.mine.en,r.mine.zh)+'</p><p class="zt">'+esc(r.mine.zh)+'</p><div class="lb">更地道的说法</div>';
+  h+='<p class="big">'+pill(r.en,r.zh)+'</p><p class="zt">'+esc(r.zh)+'</p>';
+  if(r.note)h+='<p>'+hlText(r.note)+'</p>';
+  if(r.vocab&&r.vocab.length)h+='<div class="lb">关键词</div>'+r.vocab.map(function(v){return '<p>'+pill(v.w,v.m)+' '+esc(v.m)+'</p>'}).join("");
+  if(r.examples&&r.examples.length)h+='<div class="lb">例句</div>'+r.examples.map(function(x){return '<p>'+pill(x.en,x.zh)+'<br><span class="zt">'+esc(x.zh)+'</span></p>'}).join("");
+  if(r.replies&&r.replies.length)h+='<div class="lb">别人这么说，你可以这么回</div>'+r.replies.map(function(x){return '<p>'+pill(x,"")+'</p>'}).join("");
   return h+'</div>';
 }
+/* 点高亮文字 → 弹出卡片 */
+function popup(en,zh){
+  var f=isFav(en);
+  $("pop").innerHTML='<div><span class="hlb">'+esc(en)+'</span></div>'+(zh?'<div class="zt" style="margin-top:10px">'+esc(zh)+'</div>':'')+
+    '<div class="prow"><button id="pcp" aria-label="复制">📋</button><button id="psp">▶ 朗读</button><button id="pfv" class="pfav">'+(f?'★ 已收藏':'加入收藏')+'</button></div>';
+  $("pmask").classList.remove("hide");
+  $("psp").onclick=function(){say(en)};
+  $("pcp").onclick=function(){try{navigator.clipboard.writeText(en)}catch(e){}this.textContent="✓"};
+  $("pfv").onclick=function(){
+    favs=isFav(en)?favs.filter(function(x){return x.en!==en}):[{en:en,zh:zh||""}].concat(favs);
+    sv("favs",favs);this.textContent=isFav(en)?"★ 已收藏":"加入收藏";
+  };
+}
+$("pmask").onclick=function(e){if(e.target===this){this.classList.add("hide");stopLoop()}};
+document.addEventListener("click",function(e){
+  var h=e.target.closest&&e.target.closest(".hl");
+  if(h)popup(h.dataset.en,h.dataset.zh);
+});
 function render(){
   var c=$("chat"),h="";
   if(!msgs.length){
-    h='<div class="hello"><h2>今天想学哪句？</h2>用中文问怎么说，或贴一句英文让我讲解。<div class="chips">'+SUGG.map(function(s){return '<button class="chip">'+s+'</button>'}).join("")+'</div>'+(apiKey?'':'<div class="chips"><button class="chip kb" id="keyBtn">🔑 设置 API Key</button></div>')+'</div>';
+    h='<div class="hello"><h2>今天想学哪句？</h2>'+HELLO[mode]+'<div class="chips">'+SUGGS[mode].map(function(s){return '<button class="chip">'+s+'</button>'}).join("")+'</div>'+(apiKey?'':'<div class="chips"><button class="chip kb" id="keyBtn">🔑 设置 API Key</button></div>')+'</div>';
   }else msgs.forEach(function(m){
     if(m.role==="u")h+='<div class="u">'+esc(m.t)+'</div>';
     else if(m.err)h+='<div class="a err">'+esc(m.err)+'</div>';
-    else h+=aiHtml(m.d);
+    else h+=aiHtml(m.d,m.mode||"say");
   });
   if(busy)h+='<div class="th">思考中…</div>';
   c.innerHTML=h;c.scrollTop=c.scrollHeight;
@@ -215,10 +268,18 @@ function render(){
 }
 
 /* 问 AI */
-var SYS="你是一位美式英语口语老师，学生是中文母语的初学者。只用简单、自然、日常的美式口语（多用缩写，如 gonna、wanna、I'm），不要书面语或复杂语法。"+
-"如果学生用中文，给出最自然的美式口语说法；如果学生写的是英文，先在 note 里指出语法或用词问题（最多2点），再给更自然的说法。"+
-"只返回 JSON，不要任何其他文字或代码块标记，格式："+
-'{"en":"最自然的一句英文","zh":"这句的中文意思","note":"用中文简短说明含义、用法、语气（2-3句）","vocab":[{"w":"关键词或搭配","m":"中文意思"}],"examples":[{"en":"例句","zh":"中文翻译"},{"en":"例句","zh":"中文翻译"}],"replies":["常见的自然回答1","常见的自然回答2"]}';
+var BASE="你是一位美式英语口语老师，学生是中文母语的初学者。只用简单、自然、日常的美式口语（多用缩写，如 gonna、wanna、I'm），不要书面语或复杂语法。只返回 JSON，不要任何其他文字或代码块标记。";
+var P_SAY=BASE+`
+学生会输入一句话。
+- 如果是中文：给出最自然的美式口语说法，mine 填 null。
+- 如果是英文：mine 填学生的原句和它的中文翻译；note 先用中文指出原句的语法或用词问题（最多2点，没问题就写“原句没问题”），再说明新说法为什么更地道；en 给出更地道的说法。
+格式：{"mine":{"en":"学生原句","zh":"原句的中文意思"}或null,"en":"最自然的一句英文","zh":"这句的中文意思","note":"中文讲解（2-3句）","vocab":[{"w":"关键词或搭配","m":"中文意思"}],"examples":[{"en":"例句","zh":"中文翻译"},{"en":"例句","zh":"中文翻译"}],"replies":["常见的自然回答1","常见的自然回答2"]}`;
+var P_MEAN=BASE+`
+学生会给你一句英文（或一个词、短语），请讲解它的意思。如果学生给的是中文，就当作想知道英文说法来回答。
+格式：{"mine":null,"en":"学生给的原句（原样）","zh":"中文意思","note":"用中文讲清楚意思、使用场合和语气（2-3句）","vocab":[{"w":"关键词或搭配","m":"中文意思"}],"examples":[{"en":"例句","zh":"中文翻译"},{"en":"例句","zh":"中文翻译"}],"replies":["常见的自然回答1","常见的自然回答2"]}`;
+var P_CHAT="你是一位友善的美国朋友，正在陪中文母语的初学者聊天练口语。只用简单、自然、日常的美式口语。每次只回一两句英文，常常用一个简单的问题接着聊。学生写中文时，也用英文自然回复。只返回 JSON，不要任何其他文字或代码块标记。"+`
+fix：如果学生刚才写的是英文且有问题，给出更自然的说法和一句中文说明；如果学生写的是中文，给出这句话的英文说法；英文没问题就填 null。
+格式：{"fix":{"en":"更自然的说法","note":"一句中文说明"}或null,"en":"你的英文回复","zh":"回复的中文意思"}`;
 /* 自带 Key：支持 智谱 GLM / Anthropic Claude */
 var P={zhipu:{text:"glm-5.2",vis:"glm-4.6v-flash"},anthropic:{text:"claude-sonnet-5-5",vis:"claude-sonnet-5-5"}};
 var cfg={prov:"zhipu",key:"",text:"",vis:""};
@@ -268,18 +329,36 @@ sample={
     try{return JSON.parse(m?m[0]:t)}catch(e){throw {code:"error",detail:"AI 返回的格式不对，请重试"}}
   }
 };
+var mode="say";
+var SUGGS={say:["你吃了吗？","我有点累了","能再说一遍吗？","我马上就到"],mean:["What's up?","Long time no see.","I'm running late.","Let's grab some coffee."],chat:["Hi! How's it going?","我想练习点餐","Let's talk about the weekend."]};
+var HELLO={say:"用中文问怎么说，或贴一句英文，我帮你改得更地道。",mean:"贴一句英文，我告诉你它是什么意思。",chat:"随便聊，英文中文都行，我会顺手帮你改句子。"};
+var PH={say:"用中文问怎么说，或贴一句英文…",mean:"贴一句英文，问我什么意思…",chat:"用英文或中文跟我聊天…"};
+function chatPrompt(q){
+  var h=msgs.filter(function(m){return m.mode==="chat"&&!m.err}).slice(-8).map(function(m){
+    return m.role==="u"?"Student: "+m.t:"You: "+((m.d&&m.d.en)||"");
+  }).join("\n");
+  return P_CHAT+"\n\n对话记录：\n"+(h||"（刚开始）")+"\n\n学生刚说："+q;
+}
 function ask(){
   var q=$("q").value.trim();if(!q||busy)return;
   $("q").value="";$("q").style.height="";
-  msgs.push({role:"u",t:q});busy=true;render();
+  var md=mode,prompt=md==="chat"?chatPrompt(q):((md==="mean"?P_MEAN:P_SAY)+"\n\n学生输入："+q);
+  msgs.push({role:"u",t:q,mode:md});busy=true;render();
   if(!sample){busy=false;msgs.push({role:"a",err:"当前环境无法使用 AI 功能。"});render();return}
-  sample.json(SYS+"\n\n学生输入："+q).then(function(r){
-    msgs.push({role:"a",d:r});
-    if(r&&r.en){hist=hist.filter(function(x){return x.en!==r.en});hist.unshift({en:r.en,zh:r.zh||""});hist=hist.slice(0,50);sv("hist",hist)}
+  sample.json(prompt).then(function(r){
+    msgs.push({role:"a",d:r,mode:md});
+    if(md!=="chat"&&r&&r.en){hist=hist.filter(function(x){return x.en!==r.en});hist.unshift({en:r.en,zh:r.zh||""});hist=hist.slice(0,50);sv("hist",hist)}
+    if(md==="chat"&&r&&r.en)setTimeout(function(){say(r.en)},200);
   }).catch(function(e){
     msgs.push({role:"a",err:e&&e.code==="not_granted"?"请先点右上角 ⚙️，填写 API Key。":"出错了："+((e&&e.detail)||"请再试一次")});
   }).then(function(){busy=false;msgs=msgs.slice(-30);sv("msgs",msgs);render()});
 }
+Array.prototype.forEach.call(document.querySelectorAll(".mode"),function(b){b.onclick=function(){
+  mode=b.dataset.m;
+  Array.prototype.forEach.call(document.querySelectorAll(".mode"),function(x){x.classList.toggle("on",x===b)});
+  $("q").placeholder=PH[mode];render();
+}});
+$("q").placeholder=PH[mode];
 $("send").onclick=ask;
 $("q").oninput=function(){this.style.height="auto";this.style.height=Math.min(this.scrollHeight,120)+"px"};
 $("bNew").onclick=function(){stopLoop();msgs=[];sv("msgs",msgs);render()};
@@ -400,20 +479,26 @@ function renderV(){
   }).join("");
 }
 document.addEventListener("click",function(e){
-  var b=e.target.closest&&e.target.closest(".tm");
-  if(b){var v=$("vp");v.currentTime=+b.dataset.t;v.play()}
+  var x=e.target.closest&&e.target.closest("#vl .tx"),tm=x&&x.querySelector(".tm");
+  if(tm){var v=$("vp");v.currentTime=Math.max(0,+tm.dataset.t-2);v.play()}
 });
+var lastTouch=0;
+["touchstart","wheel"].forEach(function(ev){$("vl").addEventListener(ev,function(){lastTouch=Date.now()},{passive:true})});
 $("vp").ontimeupdate=function(){
   var ct=this.currentTime,idx=-1,i;
   for(i=0;i<vsubs.length;i++){if(vsubs[i].t<=ct)idx=i;else break}
-  if(idx!==nowI){nowI=idx;var rows=$("vl").children;for(i=0;i<rows.length;i++)rows[i].classList.toggle("now",i===idx)}
+  if(idx!==nowI){nowI=idx;var rows=$("vl").children;for(i=0;i<rows.length;i++)rows[i].classList.toggle("now",i===idx);
+    if(idx>=0&&rows[idx]&&Date.now()-lastTouch>3000)rows[idx].scrollIntoView({block:"center",behavior:"smooth"})}
 };
 $("bVid").onclick=function(){$("vid").classList.remove("hide")};
 $("bVBack").onclick=function(){scanning=false;$("vp").pause();$("vid").classList.add("hide")};
 $("vf").onchange=function(){
   var f=this.files[0];if(!f)return;
   if(vurl)URL.revokeObjectURL(vurl);
-  vurl=URL.createObjectURL(f);$("vp").src=vurl;vsubs=[];renderV();vs("已加载："+f.name);
+  vurl=URL.createObjectURL(f);$("vp").src=vurl;vsubs=[];renderV();
+  runId++;scanning=false;scanPos=0;$("scan").textContent="🤖 AI 识别字幕";
+  if(cfg.key){vs("已加载："+f.name+"，AI 开始识别字幕…");setTimeout(function(){runScan()},400)}
+  else vs("已加载："+f.name+"。先点右上角 ⚙️ 填好 API Key，再点“AI 识别字幕”。");
 };
 $("vp").onerror=function(){if($("vp").src)vs("这个视频格式无法在页面里播放，换成 mp4 试试。")};
 function ts(x){return x.trim().replace(",",".").split(":").map(parseFloat).reduce(function(a,p){return a*60+p},0)}
@@ -431,7 +516,7 @@ $("sf").onchange=function(){
       L.slice(k+1).forEach(function(l){l=l.replace(/<[^>]+>/g,"").trim();if(!l)return;(/[\u4e00-\u9fff]/.test(l)?zh:en).push(l)});
       if(en.length)out.push({t:t,en:en.join(" "),zh:zh.join(" ")});
     });
-    addSubs(out);vs(out.length?"已导入 "+out.length+" 句字幕。":"没读到英文字幕，请检查文件。");
+    runId++;scanning=false;scanPos=1e9;$("scan").textContent="🤖 AI 识别字幕";addSubs(out);vs(out.length?"已导入 "+out.length+" 句字幕。":"没读到英文字幕，请检查文件。");
   };
   r.readAsText(f);
 };
@@ -450,40 +535,61 @@ function frame(v,t){
     v.currentTime=t+0.05;
   });
 }
-$("scan").onclick=async function(){
-  if(scanning){scanning=false;return}
-  var v=$("vp");
-  if(!v.src||!v.duration){vs("请先选择视频。");return}
-  if(!sample){vs("当前环境无法使用 AI 功能。");return}
+var scanPos=0,runId=0;
+function fmt(t){t=Math.floor(t);return Math.floor(t/60)+":"+("0"+t%60).slice(-2)}
+function loadVid(){
+  return new Promise(function(res){
+    var sv=document.createElement("video"),done=false;
+    sv.muted=true;sv.preload="auto";sv.setAttribute("playsinline","");
+    sv.style.cssText="position:fixed;width:2px;height:2px;opacity:0;pointer-events:none;left:0;top:0";
+    function fin(ok){if(done)return;done=true;if(!ok)sv.remove();res(ok?sv:null)}
+    sv.onloadedmetadata=function(){fin(true)};sv.onerror=function(){fin(false)};
+    setTimeout(function(){fin(false)},8000);
+    document.body.appendChild(sv);sv.src=vurl;
+  });
+}
+function vPrompt(n){return `下面是一段视频中按顺序截取的 ${n} 张画面（只含画面下半部分），编号 0 到 ${n-1}。请读出每张画面里的字幕文字。只返回 JSON 数组，每张画面一个对象：{"i":编号,"en":"英文字幕，没有则为空字符串","zh":"中文字幕，没有则为空字符串"}。看不清就留空，不要猜测。`}
+async function runScan(){
+  var btn=$("scan");
+  if(scanning){runId++;scanning=false;btn.textContent="🔍 继续识别";vs("已暂停在 "+fmt(scanPos)+"，共 "+vsubs.length+" 句。点“继续识别”接着来。");return}
+  if(!vurl){vs("请先选择视频。");return}
+  if(!cfg.key){vs("请先点右上角 ⚙️，填写 API Key。");return}
   var lim=null;try{lim=await sample.limits()}catch(e){}
   if(!lim||!lim.images){vs("当前环境不支持让 AI 看图片。");return}
-  var B=Math.min(lim.images.maxCount||8,8),step=3,N=60,t0=v.currentTime,found=0,done=0;
-  scanning=true;this.textContent="⏹ 停止";v.pause();
+  var sv=await loadVid();
+  if(!sv||!sv.duration){vs("这个视频无法读取，换成 mp4 试试。");return}
+  if(scanPos>=sv.duration)scanPos=0;
+  var id=++runId,B=Math.min(lim.images.maxCount||6,6),step=3;
+  scanning=true;btn.textContent="⏹ 停止识别";
   try{
-    for(var b=0;b<N&&scanning;b+=B){
+    while(id===runId&&scanPos<sv.duration){
       var times=[],blobs=[],k,t,bl;
-      for(k=b;k<Math.min(b+B,N);k++){
-        t=t0+k*step;if(t>=v.duration)break;
-        bl=await frame(v,t);if(bl){times.push(t);blobs.push(bl)}
+      for(k=0;k<B;k++){
+        t=scanPos+k*step;if(t>=sv.duration)break;
+        bl=await frame(sv,t);if(id!==runId)return;
+        if(bl){times.push(t);blobs.push(bl)}
       }
-      if(!blobs.length)break;
-      vs("识别中… "+done+"/"+N+"（每 3 秒取一帧）");
-      var r=await sample.json(`下面是一段视频中按顺序截取的 ${blobs.length} 张画面（只含画面下半部分），编号 0 到 ${blobs.length-1}。请读出每张画面里的字幕文字。只返回 JSON 数组，每张画面一个对象：{"i":编号,"en":"英文字幕，没有则为空字符串","zh":"中文字幕，没有则为空字符串"}。看不清就留空，不要猜测。`,{images:blobs,cache:false});
-      var add=[];
-      (Array.isArray(r)?r:[]).forEach(function(o){
-        var tt=times[o&&o.i];
-        if(tt==null||!o.en||!String(o.en).trim())return;
-        add.push({t:tt,en:String(o.en).trim(),zh:o.zh?String(o.zh).trim():""});
-      });
-      found+=add.length;done+=blobs.length;addSubs(add);
-      if(times.length<B)break;
+      vs("AI 识别中… "+fmt(scanPos)+" / "+fmt(sv.duration)+"，已找到 "+vsubs.length+" 句（可以边看边识别）");
+      if(blobs.length){
+        var r=await sample.json(vPrompt(blobs.length),{images:blobs,cache:false});
+        if(id!==runId)return;
+        var add=[];
+        (Array.isArray(r)?r:[]).forEach(function(o){
+          var tt=times[o&&o.i];
+          if(tt==null||!o.en||!String(o.en).trim())return;
+          add.push({t:tt,en:String(o.en).trim(),zh:o.zh?String(o.zh).trim():""});
+        });
+        addSubs(add);
+      }
+      scanPos+=B*step;
     }
-    vs(found?"识别完成，共 "+found+" 句。点 ▶ 跳转，点句子收藏。想继续就把进度条拖到后面再识别。":"这一段没识别到英文字幕。");
+    if(id===runId)vs(vsubs.length?"识别完成，共 "+vsubs.length+" 句。点句子可跳转，点 ☆ 收藏。":"没识别到英文字幕。这个视频的画面里可能没有字幕。");
   }catch(e){
-    vs(e&&e.code==="not_granted"?"请先点右上角 ⚙️，填写 API Key。":"识别出错了："+((e&&e.detail)||"请再试一次"));
-  }
-  scanning=false;v.currentTime=t0;$("scan").textContent="🔍 AI 识别画面字幕";
-};
+    if(id===runId)vs("识别中断："+((e&&e.detail)||"请再试一次")+"。点“继续识别”从 "+fmt(scanPos)+" 接着来。");
+  }finally{sv.remove()}
+  if(id===runId){scanning=false;btn.textContent=scanPos>=sv.duration?"🔍 重新识别":"🔍 继续识别"}
+}
+$("scan").onclick=function(){runScan()};
 render();
 </script>
 </body>
