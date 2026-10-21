@@ -25,6 +25,11 @@ jobs:
           npx cap add android
           npx capacitor-assets generate --android
           npx cap sync android
+      - name: 固定签名（每次打包签名一致，才能覆盖安装）
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: debug-keystore-v1
       - name: 打包 APK
         run: |
           cd android
