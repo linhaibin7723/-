@@ -108,6 +108,10 @@ textarea:focus{outline:0;border-color:var(--acc)}
 .prow button{padding:10px 14px;border-radius:999px;font-size:15px}
 #psp{color:var(--acc);font-weight:600}
 .pfav{background:var(--card);font-weight:600}
+.w{border-radius:8px;cursor:pointer}
+.w.on{background:var(--acc);color:var(--accfg)}
+.dict{margin-top:14px;padding:10px 12px;border-radius:14px;background:var(--card);font-size:15px;min-height:44px}
+.dsp{margin-left:4px;font-size:16px}
 .hide{display:none}
 </style>
 </head>
@@ -134,8 +138,8 @@ textarea:focus{outline:0;border-color:var(--acc)}
   <header><button class="ib" id="bVBack" aria-label="返回">←</button><b>视频字幕</b><span class="ib"></span></header>
   <video id="vp" class="vv" controls playsinline></video>
   <div class="vb">
-    <label class="tab">🎬 选视频<input type="file" id="vf" accept="video/*" hidden></label>
-    <label class="tab">📄 导入字幕<input type="file" id="sf" accept=".srt,.vtt" hidden></label>
+    <label class="tab">🎬 选视频<input type="file" id="vf" accept="video/*,.mp4,.mkv,.webm,.mov,.m4v,.avi,.3gp,.ts,.flv,.wmv" hidden></label>
+    <label class="tab">📄 导入字幕<input type="file" id="sf" accept=".srt,.vtt,.ass,.ssa,.lrc,.sbv,.txt" hidden></label>
     <button class="tab on" id="scan">🤖 AI 识别字幕</button>
   </div>
   <div class="vst" id="vst">选一个视频，AI 会自动识别画面里的字幕（需要先在 ⚙️ 填好 Key）。有 .srt/.vtt 字幕文件的话，导入更准。</div>
@@ -233,12 +237,38 @@ function aiHtml(r,md){
   if(r.replies&&r.replies.length)h+='<div class="lb">别人这么说，你可以这么回</div>'+r.replies.map(function(x){return '<p>'+pill(x,"")+'</p>'}).join("");
   return h+'</div>';
 }
+/* 词典：点单词查意思（结果会缓存在本地） */
+var dict={};try{dict=JSON.parse(localStorage.getItem("dict")||"{}")}catch(e){}
+function wordsHtml(t){
+  var out="",last=0,m,re=/[A-Za-z][A-Za-z'’\-]*/g;
+  while((m=re.exec(t))){out+=esc(t.slice(last,m.index))+'<span class="w">'+esc(m[0])+'</span>';last=m.index+m[0].length}
+  return out+esc(t.slice(last));
+}
+function showDict(w,r){
+  var box=$("dict");if(!box)return;
+  box.innerHTML='<b>'+esc(r.w||w)+'</b>'+(r.ipa?' <span class="zt">'+esc(r.ipa)+'</span>':'')+(r.pos?' <span class="zt">'+esc(r.pos)+'</span>':'')+' <button class="dsp" id="dsp">🔊</button><div>'+esc(r.zh||"")+'</div>'+(r.more?'<div class="zt">'+esc(r.more)+'</div>':'');
+  $("dsp").onclick=function(){say(w)};
+}
+function lookup(el,ctx){
+  var w=el.textContent,box=$("dict");
+  Array.prototype.forEach.call($("pop").querySelectorAll(".w"),function(x){x.classList.toggle("on",x===el)});
+  var k=w.toLowerCase()+"|"+ctx.toLowerCase().slice(0,80);
+  if(dict[k]){showDict(w,dict[k]);return}
+  if(!cfg.key){box.textContent="请先点右上角 ⚙️ 填好 API Key";return}
+  box.textContent="查询中…";
+  sample.json(`你是英汉词典。词：${w}。所在句子：${ctx}。只返回 JSON，不要其他文字：{"w":"词的原形","ipa":"美式音标","pos":"词性缩写，如 n. v. adj.","zh":"这个词在这句话里的中文意思，简短","more":"其他常见意思，简短，没有就留空"}`).then(function(r){
+    dict[k]=r;try{localStorage.setItem("dict",JSON.stringify(dict))}catch(e){}
+    if(el.classList.contains("on"))showDict(w,r);
+  }).catch(function(e){if(el.classList.contains("on"))box.textContent="查询失败："+((e&&e.detail)||"请再试一次")});
+}
 /* 点高亮文字 → 弹出卡片 */
 function popup(en,zh){
   var f=isFav(en);
-  $("pop").innerHTML='<div><span class="hlb">'+esc(en)+'</span></div>'+(zh?'<div class="zt" style="margin-top:10px">'+esc(zh)+'</div>':'')+
-    '<div class="prow"><button id="pcp" aria-label="复制">📋</button><button id="psp">▶ 朗读</button><button id="pfv" class="pfav">'+(f?'★ 已收藏':'加入收藏')+'</button></div>';
+  $("pop").innerHTML='<div><span class="hlb">'+wordsHtml(en)+'</span></div>'+(zh?'<div class="zt" style="margin-top:10px">'+esc(zh)+'</div>':'')+
+    '<div class="dict" id="dict">点一下上面的英文单词，查看词典意思</div><div class="prow"><button id="pcp" aria-label="复制">📋</button><button id="psp">▶ 朗读</button><button id="pfv" class="pfav">'+(f?'★ 已收藏':'加入收藏')+'</button></div>';
   $("pmask").classList.remove("hide");
+  $("pop").onclick=function(e){var w=e.target.closest&&e.target.closest(".w");if(w)lookup(w,en)};
+  if(/^[A-Za-z'’\-]+$/.test(en.trim())){var w0=$("pop").querySelector(".w");if(w0)lookup(w0,en)}
   $("psp").onclick=function(){say(en)};
   $("pcp").onclick=function(){try{navigator.clipboard.writeText(en)}catch(e){}this.textContent="✓"};
   $("pfv").onclick=function(){
@@ -314,14 +344,20 @@ sample={
       headers={"content-type":"application/json","authorization":"Bearer "+cfg.key};
       body={model:model,messages:[{role:"user",content:content}],max_tokens:2000,temperature:0.3,thinking:{type:"disabled"}};
     }
-    var r;
-    try{r=await fetch(url,{method:"POST",headers:headers,body:JSON.stringify(body)})}catch(e){throw {code:"error",detail:"网络连接失败"}}
-    if(!r.ok){
-      var msg="";
-      try{var j=await r.json();msg=(j.error&&(j.error.message||j.error.type))||""}catch(e){}
+    var r,data,tries=0,delays=[2000,5000,10000,20000];
+    for(;;){
+      try{r=await fetch(url,{method:"POST",headers:headers,body:JSON.stringify(body)})}catch(e){throw {code:"error",detail:"网络连接失败"}}
+      if(r.ok){data=await r.json();break}
+      var msg="",ec="";
+      try{var j=await r.json();msg=(j.error&&(j.error.message||j.error.type))||"";ec=String((j.error&&j.error.code)||"")}catch(e){}
+      var busy=(r.status===429||r.status===503||r.status===529)&&["1113","1304","1308","1309","1310"].indexOf(ec)<0;
+      if(busy&&tries<delays.length){
+        if(window.retryHook)window.retryHook(tries+1,delays[tries]/1000);
+        await new Promise(function(res){setTimeout(res,delays[tries])});tries++;continue;
+      }
       throw {code:(r.status===401||r.status===403)?"not_granted":"error",detail:"HTTP "+r.status+(msg?"："+String(msg).slice(0,80):"")};
     }
-    var data=await r.json(),t;
+    var t;
     if(pv==="anthropic")t=(data.content||[]).map(function(x){return x.text||""}).join("");
     else t=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||"";
     t=String(t).replace(/```json|```/g,"").trim();
@@ -492,33 +528,88 @@ $("vp").ontimeupdate=function(){
 };
 $("bVid").onclick=function(){$("vid").classList.remove("hide")};
 $("bVBack").onclick=function(){scanning=false;$("vp").pause();$("vid").classList.add("hide")};
-$("vf").onchange=function(){
-  var f=this.files[0];if(!f)return;
+var vFile=null,vTry=0,autoPending=false,VT=["","video/mp4","video/webm"];
+function setVideo(f,i){
   if(vurl)URL.revokeObjectURL(vurl);
-  vurl=URL.createObjectURL(f);$("vp").src=vurl;vsubs=[];renderV();
-  runId++;scanning=false;scanPos=0;$("scan").textContent="🤖 AI 识别字幕";
-  if(cfg.key){vs("已加载："+f.name+"，AI 开始识别字幕…");setTimeout(function(){runScan()},400)}
-  else vs("已加载："+f.name+"。先点右上角 ⚙️ 填好 API Key，再点“AI 识别字幕”。");
+  vTry=i;vurl=URL.createObjectURL(i===0?f:new Blob([f],{type:VT[i]}));$("vp").src=vurl;
+}
+$("vf").onchange=function(){
+  var f=this.files[0];this.value="";if(!f)return;
+  vFile=f;vsubs=[];renderV();runId++;scanning=false;scanPos=0;$("scan").textContent="🤖 AI 识别字幕";
+  autoPending=true;vs("已选择："+f.name+"，正在读取…");setVideo(f,0);
 };
-$("vp").onerror=function(){if($("vp").src)vs("这个视频格式无法在页面里播放，换成 mp4 试试。")};
+$("vp").onloadedmetadata=function(){
+  if(!autoPending)return;autoPending=false;
+  if(cfg.key){vs("AI 开始识别字幕…");setTimeout(function(){runScan()},300)}
+  else vs("视频已加载。先点右上角 ⚙️ 填好 API Key，再点“AI 识别字幕”。");
+};
+$("vp").onerror=function(){
+  if(!vFile)return;
+  if(vTry<VT.length-1){setVideo(vFile,vTry+1);return}
+  autoPending=false;
+  vs("这个视频手机解码不了（avi、wmv、flv 或特殊编码较常见）。建议用视频转换工具转成 mp4（H.264）再导入；也可以只导入字幕文件。");
+};
+var CJK=/[\u4e00-\u9fff]/;
 function ts(x){return x.trim().replace(",",".").split(":").map(parseFloat).reduce(function(a,p){return a*60+p},0)}
-$("sf").onchange=function(){
-  var f=this.files[0];if(!f)return;
-  var r=new FileReader();
-  r.onload=function(){
-    var out=[];
-    String(r.result).replace(/\r/g,"").split(/\n\n+/).forEach(function(blk){
-      var L=blk.split("\n"),k=-1,i;
-      for(i=0;i<L.length;i++){if(L[i].indexOf("-->")>-1){k=i;break}}
-      if(k<0)return;
-      var t=ts(L[k].split("-->")[0]);if(isNaN(t))return;
-      var en=[],zh=[];
-      L.slice(k+1).forEach(function(l){l=l.replace(/<[^>]+>/g,"").trim();if(!l)return;(/[\u4e00-\u9fff]/.test(l)?zh:en).push(l)});
-      if(en.length)out.push({t:t,en:en.join(" "),zh:zh.join(" ")});
+function mkCue(t,lines){
+  var en=[],zh=[];
+  lines.forEach(function(l){
+    l=String(l).replace(/<[^>]+>/g,"").replace(/\{[^}]*\}/g,"").trim();
+    if(l)(CJK.test(l)?zh:en).push(l);
+  });
+  return en.length&&!isNaN(t)?{t:t,en:en.join(" "),zh:zh.join(" ")}:null;
+}
+function parseSubs(text){
+  text=text.replace(/^\uFEFF/,"").replace(/\r/g,"");
+  var out=[],c,i;
+  if(/^Dialogue:/m.test(text)){
+    text.split("\n").forEach(function(ln){
+      var m=ln.match(/^Dialogue:\s*[^,]*,([^,]*),(?:[^,]*,){7}(.*)$/);
+      if(m&&(c=mkCue(ts(m[1]),m[2].split(/\\[Nn]/))))out.push(c);
     });
-    runId++;scanning=false;scanPos=1e9;$("scan").textContent="🤖 AI 识别字幕";addSubs(out);vs(out.length?"已导入 "+out.length+" 句字幕。":"没读到英文字幕，请检查文件。");
-  };
-  r.readAsText(f);
+    return out;
+  }
+  if(!/-->/.test(text)&&/^\s*\[\d+:\d+/m.test(text)){
+    var by={},keys=[];
+    text.split("\n").forEach(function(ln){
+      var m=ln.match(/^\s*((?:\[\d+:\d+(?:[.:]\d+)?\])+)(.*)$/);if(!m)return;
+      m[1].replace(/\[(\d+):(\d+)(?:[.:](\d+))?\]/g,function(_,mi,se,fr){
+        var t=+mi*60+ +se+(fr?+fr/(fr.length>=3?1000:100):0),k=t.toFixed(2);
+        if(!by[k]){by[k]={t:t,l:[]};keys.push(k)}by[k].l.push(m[2]);
+      });
+    });
+    keys.forEach(function(k){if(c=mkCue(by[k].t,by[k].l))out.push(c)});
+    return out;
+  }
+  text.split(/\n\n+/).forEach(function(blk){
+    var L=blk.split("\n"),k=-1;
+    for(i=0;i<L.length;i++){
+      if(L[i].indexOf("-->")>-1||/^\d+:\d\d:\d\d\.\d+,\d+:\d\d:\d\d\.\d+\s*$/.test(L[i])){k=i;break}
+    }
+    if(k<0)return;
+    var st=L[k].indexOf("-->")>-1?L[k].split("-->")[0]:L[k].split(",")[0];
+    if(c=mkCue(ts(st),L.slice(k+1)))out.push(c);
+  });
+  return out;
+}
+function decodeBuf(buf){
+  var u=new Uint8Array(buf);
+  try{
+    if(u[0]===0xFF&&u[1]===0xFE)return new TextDecoder("utf-16le").decode(buf);
+    if(u[0]===0xFE&&u[1]===0xFF)return new TextDecoder("utf-16be").decode(buf);
+  }catch(e){}
+  try{return new TextDecoder("utf-8",{fatal:true}).decode(buf)}catch(e){}
+  try{return new TextDecoder("gbk").decode(buf)}catch(e){}
+  return new TextDecoder("utf-8").decode(buf);
+}
+$("sf").onchange=function(){
+  var f=this.files[0];this.value="";if(!f)return;
+  f.arrayBuffer().then(function(buf){
+    var out=parseSubs(decodeBuf(buf));
+    runId++;scanning=false;scanPos=1e9;$("scan").textContent="🤖 AI 识别字幕";
+    addSubs(out);
+    vs(out.length?"已导入 "+out.length+" 句字幕（"+f.name+"）。":"没读到英文字幕，请确认文件是 srt、vtt、ass、ssa、lrc 或 sbv 格式。");
+  }).catch(function(){vs("读取字幕文件失败。")});
 };
 function frame(v,t){
   return new Promise(function(res){
@@ -559,8 +650,9 @@ async function runScan(){
   var sv=await loadVid();
   if(!sv||!sv.duration){vs("这个视频无法读取，换成 mp4 试试。");return}
   if(scanPos>=sv.duration)scanPos=0;
-  var id=++runId,B=Math.min(lim.images.maxCount||6,6),step=3;
+  var id=++runId,B=Math.min(lim.images.maxCount||6,6),step=3,fails=0,skipped=0;
   scanning=true;btn.textContent="⏹ 停止识别";
+  window.retryHook=function(n,sec){if(id===runId)vs("服务繁忙，"+sec+" 秒后自动重试（第 "+n+" 次），当前 "+fmt(scanPos))};
   try{
     while(id===runId&&scanPos<sv.duration){
       var times=[],blobs=[],k,t,bl;
@@ -571,22 +663,29 @@ async function runScan(){
       }
       vs("AI 识别中… "+fmt(scanPos)+" / "+fmt(sv.duration)+"，已找到 "+vsubs.length+" 句（可以边看边识别）");
       if(blobs.length){
-        var r=await sample.json(vPrompt(blobs.length),{images:blobs,cache:false});
-        if(id!==runId)return;
-        var add=[];
-        (Array.isArray(r)?r:[]).forEach(function(o){
-          var tt=times[o&&o.i];
-          if(tt==null||!o.en||!String(o.en).trim())return;
-          add.push({t:tt,en:String(o.en).trim(),zh:o.zh?String(o.zh).trim():""});
-        });
-        addSubs(add);
+        try{
+          var r=await sample.json(vPrompt(blobs.length),{images:blobs,cache:false});
+          if(id!==runId)return;
+          var add=[];
+          (Array.isArray(r)?r:[]).forEach(function(o){
+            var tt=times[o&&o.i];
+            if(tt==null||!o.en||!String(o.en).trim())return;
+            add.push({t:tt,en:String(o.en).trim(),zh:o.zh?String(o.zh).trim():""});
+          });
+          addSubs(add);fails=0;
+        }catch(e){
+          if(id!==runId)return;
+          if(e&&e.code==="not_granted")throw e;
+          fails++;skipped++;
+          if(fails>=3)throw e;
+        }
       }
       scanPos+=B*step;
     }
-    if(id===runId)vs(vsubs.length?"识别完成，共 "+vsubs.length+" 句。点句子可跳转，点 ☆ 收藏。":"没识别到英文字幕。这个视频的画面里可能没有字幕。");
+    if(id===runId)vs((vsubs.length?"识别完成，共 "+vsubs.length+" 句。点句子可跳转，点 ☆ 收藏。":"没识别到英文字幕。这个视频的画面里可能没有字幕。")+(skipped?"有 "+skipped+" 段因服务繁忙被跳过，可点“重新识别”再试。":""));
   }catch(e){
     if(id===runId)vs("识别中断："+((e&&e.detail)||"请再试一次")+"。点“继续识别”从 "+fmt(scanPos)+" 接着来。");
-  }finally{sv.remove()}
+  }finally{sv.remove();if(id===runId)window.retryHook=null}
   if(id===runId){scanning=false;btn.textContent=scanPos>=sv.duration?"🔍 重新识别":"🔍 继续识别"}
 }
 $("scan").onclick=function(){runScan()};
