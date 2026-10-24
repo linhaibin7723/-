@@ -132,6 +132,15 @@ textarea:focus{outline:0;border-color:var(--acc)}
 .st{color:#ff9f0a;font-size:16px;flex:none;width:18px;text-align:center}
 .chint{text-align:center;color:var(--mut);font-size:13px;padding:0 0 12px}
 .cardbox{touch-action:pan-y}
+.yrow{display:flex;gap:8px;padding:0 12px 8px}
+.yrow input{flex:1}
+#ytwrap{width:100%;aspect-ratio:16/9;max-height:34vh;background:#000}
+#ytwrap iframe{width:100%;height:100%;border:0}
+.mrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:.5px solid var(--bd)}
+.mid{flex:1;word-break:break-all;font-size:14px}
+.mrow button{padding:6px 12px;border-radius:999px;background:var(--card);font-size:13px}
+.mrow button.on{background:var(--acc);color:var(--accfg)}
+.mx{width:54px}
 .hide{display:none}
 </style>
 </head>
@@ -157,11 +166,14 @@ textarea:focus{outline:0;border-color:var(--acc)}
 <div class="ov hide" id="vid">
   <header><button class="ib" id="bVBack" aria-label="返回">←</button><b>视频字幕</b><span class="ib"></span></header>
   <video id="vp" class="vv" controls playsinline></video>
+  <div id="ytwrap" class="hide"><div id="ytp"></div></div>
   <div class="vb">
     <label class="tab">🎬 选视频<input type="file" id="vf" accept="video/*,.mp4,.mkv,.webm,.mov,.m4v,.avi,.3gp,.ts,.flv,.wmv" hidden></label>
     <label class="tab">📄 导入字幕<input type="file" id="sf" accept=".srt,.vtt,.ass,.ssa,.lrc,.sbv,.txt" hidden></label>
+    <button class="tab" id="ytBtn">▶ YouTube</button>
     <button class="tab on" id="scan">🤖 AI 识别字幕</button>
   </div>
+  <div class="yrow hide" id="yrow"><input id="yurl" class="sel" placeholder="粘贴 YouTube 链接…"><button class="tab on" id="ygo">加载</button></div>
   <div class="vst" id="vst">选一个视频，AI 会自动识别画面里的字幕（需要先在 ⚙️ 填好 Key）。有 .srt/.vtt 字幕文件的话，导入更准。</div>
   <div id="vl"></div>
 </div>
@@ -631,6 +643,7 @@ $("bSet").onclick=function(){
   '<div class="lb">API Key（只保存在这个手机里）</div><input id="akey" class="sel" type="password" autocomplete="off" value="'+esc(cfg.key)+'">'+
   '<div class="lb">文字模型</div><input id="atxt" class="sel" value="'+esc(cfg.text||P[cfg.prov].text)+'">'+
   '<div class="lb">图片模型（识别视频字幕用）</div><input id="avis" class="sel" value="'+esc(cfg.vis||P[cfg.prov].vis)+'">'+
+  '<div class="acts"><button id="amods">🔍 自动测试可用模型</button></div><input id="aextra" class="sel" placeholder="想一起测的模型名，多个用逗号隔开（可不填）" style="margin-top:8px"><div id="mlist"></div>'+
   '<div class="acts"><button id="atest">测试连接</button><button id="asave" class="on">保存并关闭</button></div><div class="zh" id="astat" style="margin-top:8px"></div>';
   $("mask").classList.remove("hide");
   $("vsel").onchange=function(){
@@ -645,11 +658,19 @@ $("bSet").onclick=function(){
   }});
   $("try").onclick=function(){say("Hey, how's it going? I'm gonna grab some coffee.")};
   $("aprov").value=cfg.prov;
-  $("aprov").onchange=function(){cfg.prov=this.value;cfg.text="";cfg.vis="";saveCfg();$("atxt").value=P[cfg.prov].text;$("avis").value=P[cfg.prov].vis};
+  $("aprov").onchange=function(){cfg.prov=this.value;cfg.text="";cfg.vis="";saveCfg();$("atxt").value=P[cfg.prov].text;$("avis").value=P[cfg.prov].vis;renderModels()};
   $("akey").oninput=function(){cfg.key=this.value.trim();apiKey=cfg.key;saveCfg()};
   $("atxt").oninput=function(){cfg.text=this.value.trim();saveCfg()};
   $("avis").oninput=function(){cfg.vis=this.value.trim();saveCfg()};
   $("asave").onclick=function(){$("mask").classList.add("hide");render()};
+  $("amods").onclick=testModels;
+  $("mlist").onclick=function(e){
+    var b=e.target.closest&&e.target.closest("button[data-id]");if(!b)return;
+    if(b.classList.contains("mt")){cfg.text=b.dataset.id;$("atxt").value=cfg.text}
+    else{cfg.vis=b.dataset.id;$("avis").value=cfg.vis}
+    saveCfg();renderModels();
+  };
+  renderModels();
   $("atest").onclick=function(){
     var st=$("astat");st.textContent="测试中…";
     sample.json('只返回 JSON，不要其他文字：{"ok":true}').then(function(){st.textContent="✓ 连接成功，可以用了"}).catch(function(e){
@@ -673,18 +694,23 @@ function renderV(){
 }
 document.addEventListener("click",function(e){
   var x=e.target.closest&&e.target.closest("#vl .tx"),tm=x&&x.querySelector(".tm");
-  if(tm&&!e.target.closest(".w")&&Date.now()-(+x.closest(".s").dataset.swiped||0)>400){var v=$("vp");v.currentTime=Math.max(0,+tm.dataset.t-2);v.play()}
+  if(tm&&!e.target.closest(".w")&&Date.now()-(+x.closest(".s").dataset.swiped||0)>400)seekTo(+tm.dataset.t)
 });
 var lastTouch=0;
 ["touchstart","wheel"].forEach(function(ev){$("vl").addEventListener(ev,function(){lastTouch=Date.now()},{passive:true})});
-$("vp").ontimeupdate=function(){
-  var ct=this.currentTime,idx=-1,i;
+function syncSubs(ct){
+  var idx=-1,i;
   for(i=0;i<vsubs.length;i++){if(vsubs[i].t<=ct)idx=i;else break}
   if(idx!==nowI){nowI=idx;var rows=$("vl").children;for(i=0;i<rows.length;i++)rows[i].classList.toggle("now",i===idx);
     if(idx>=0&&rows[idx]&&Date.now()-lastTouch>3000)rows[idx].scrollIntoView({block:"center",behavior:"smooth"})}
-};
+}
+$("vp").ontimeupdate=function(){syncSubs(this.currentTime)};
+function seekTo(t){
+  if(ytMode&&yt&&yt.seekTo){yt.seekTo(Math.max(0,t-0.3),true);yt.playVideo()}
+  else{var v=$("vp");v.currentTime=Math.max(0,t-2);v.play()}
+}
 $("bVid").onclick=function(){$("vid").classList.remove("hide")};
-$("bVBack").onclick=function(){scanning=false;$("vp").pause();$("vid").classList.add("hide")};
+$("bVBack").onclick=function(){scanning=false;try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}$("vp").pause();$("vid").classList.add("hide")};
 var vFile=null,vTry=0,autoPending=false,VT=["","video/mp4","video/webm"];
 function setVideo(f,i){
   if(vurl)URL.revokeObjectURL(vurl);
@@ -692,6 +718,7 @@ function setVideo(f,i){
 }
 $("vf").onchange=function(){
   var f=this.files[0];this.value="";if(!f)return;
+  ytMode=false;clearInterval(ytTimer);try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}$("ytwrap").classList.add("hide");$("vp").classList.remove("hide");
   vFile=f;vsubs=[];renderV();runId++;scanning=false;scanPos=0;$("scan").textContent="🤖 AI 识别字幕";
   autoPending=true;vs("已选择："+f.name+"，正在读取…");setVideo(f,0);
 };
@@ -846,6 +873,188 @@ async function runScan(){
   if(id===runId){scanning=false;btn.textContent=scanPos>=sv.duration?"🔍 重新识别":"🔍 继续识别"}
 }
 $("scan").onclick=function(){runScan()};
+/* ===== 自动测试可用模型 ===== */
+var CAND={
+  zhipu:["glm-4-flash","glm-4-flash-250414","glm-4-air","glm-4-airx","glm-4-plus","glm-4.5","glm-4.5-air","glm-4.5-flash","glm-4.6","glm-4.7","glm-5","glm-5.1","glm-5.2","glm-4v-flash","glm-4v","glm-4v-plus","glm-4.5v","glm-4.6v","glm-4.6v-flash"],
+  anthropic:["claude-haiku-5-5","claude-sonnet-5-5","claude-opus-5-5"]
+};
+var TEST_PNG="iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAP0lEQVR4nGN8ZmPDQEvARFPTRy0YtYAqgAWXhOThwyQZ9NzWFqv40A+iUQtGLRi1YNSCEWEB42i7aNSCUQsYAA6DBf1nxLL9AAAAAElFTkSuQmCC",testing=false;
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+async function pingModel(model,img){
+  var pv=cfg.prov,url,headers,body,content;
+  if(pv==="anthropic"){
+    content=img?[{type:"image",source:{type:"base64",media_type:"image/png",data:TEST_PNG}},{type:"text",text:"只回复 OK"}]:"只回复 OK";
+    url="https://api.anthropic.com/v1/messages";
+    headers={"content-type":"application/json","x-api-key":cfg.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"};
+    body={model:model,max_tokens:16,messages:[{role:"user",content:content}]};
+  }else{
+    content=img?[{type:"image_url",image_url:{url:"data:image/png;base64,"+TEST_PNG}},{type:"text",text:"只回复 OK"}]:"只回复 OK";
+    url="https://open.bigmodel.cn/api/paas/v4/chat/completions";
+    headers={"content-type":"application/json","authorization":"Bearer "+cfg.key};
+    body={model:model,messages:[{role:"user",content:content}],max_tokens:16};
+  }
+  var r;
+  try{r=await fetch(url,{method:"POST",headers:headers,body:JSON.stringify(body)})}catch(e){return {ok:false,status:0,detail:"网络连接失败"}}
+  if(r.ok)return {ok:true};
+  var msg="",ec="";
+  try{var j=await r.json();msg=(j.error&&(j.error.message||j.error.type))||"";ec=String((j.error&&j.error.code)||"")}catch(e){}
+  return {ok:false,status:r.status,ec:ec,detail:msg};
+}
+async function candidates(){
+  var pv=cfg.prov,list=[],url,headers;
+  if(pv==="anthropic"){url="https://api.anthropic.com/v1/models?limit=100";headers={"x-api-key":cfg.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}}
+  else{url="https://open.bigmodel.cn/api/paas/v4/models";headers={"authorization":"Bearer "+cfg.key}}
+  try{
+    var r=await fetch(url,{headers:headers});
+    if(r.ok){var d=await r.json();(d.data||d.models||[]).forEach(function(m){var id=m&&(m.id||m.model||m.name);if(id)list.push(String(id))})}
+  }catch(e){}
+  list=list.filter(function(id){return !/embed|cogview|cogvideo|vidu|tts|asr|rerank|image|video|moderation/i.test(id)});
+  (CAND[pv]||[]).forEach(function(id){if(list.indexOf(id)<0)list.push(id)});
+  var ex=$("aextra")?$("aextra").value.split(/[\s,，]+/).filter(Boolean):[];
+  ex.forEach(function(id){if(list.indexOf(id)<0)list.push(id)});
+  return list;
+}
+function renderModels(){
+  var box=$("mlist");if(!box)return;
+  var a=(cfg.avail&&cfg.avail[cfg.prov])||[],ct=cfg.text||P[cfg.prov].text,cv=cfg.vis||P[cfg.prov].vis;
+  box.innerHTML=a.length?a.map(function(m){
+    return '<div class="mrow"><span class="mid">'+esc(m.id)+(m.vis?' 🖼':'')+(m.busy?' <span class="zt">（繁忙）</span>':'')+'</span>'+
+      '<button class="mt'+(ct===m.id?' on':'')+'" data-id="'+esc(m.id)+'">文字</button>'+
+      (m.vis?'<button class="mv'+(cv===m.id?' on':'')+'" data-id="'+esc(m.id)+'">图片</button>':'<span class="mx"></span>')+'</div>';
+  }).join(""):'<div class="zt" style="margin-top:8px">点上面的按钮，自动测试你的 Key 能用哪些模型。</div>';
+}
+async function testModels(){
+  var say2=function(m){var e=$("astat");if(e)e.textContent=m};
+  var btn=$("amods");
+  if(testing){testing=false;return}
+  if(!cfg.key){say2("请先填写 API Key。");return}
+  testing=true;btn.textContent="⏹ 停止测试";
+  var pv=cfg.prov,cand=[],ok=[],i,r;
+  try{
+    say2("正在获取模型列表…");cand=await candidates();
+    for(i=0;i<cand.length&&testing;i++){
+      say2("测试文字能力 "+(i+1)+"/"+cand.length+"："+cand[i]);
+      r=await pingModel(cand[i],false);
+      if(r.status===401||r.status===403){say2("Key 不对或没有权限（HTTP "+r.status+"）。");testing=false;break}
+      if(r.ok)ok.push({id:cand[i],vis:false});
+      else if(r.status===429&&["1113","1304","1308","1309","1310"].indexOf(r.ec)<0)ok.push({id:cand[i],vis:false,busy:true});
+      await sleep(250);
+    }
+    for(i=0;i<ok.length&&testing;i++){
+      say2("测试图片能力 "+(i+1)+"/"+ok.length+"："+ok[i].id);
+      r=await pingModel(ok[i].id,true);ok[i].vis=!!r.ok;await sleep(250);
+    }
+    if(testing||ok.length){
+      cfg.avail=cfg.avail||{};cfg.avail[pv]=ok;saveCfg();renderModels();
+      say2("测了 "+cand.length+" 个模型，"+ok.length+" 个能用，其中 "+ok.filter(function(m){return m.vis}).length+" 个能看图片。点“文字”或“图片”来选用。");
+    }
+  }catch(e){say2("测试中断，请再试一次。")}
+  testing=false;var b2=$("amods");if(b2)b2.textContent="🔍 自动测试可用模型";
+}
+
+/* ===== YouTube：在 App 里看，字幕自动获取并翻译 ===== */
+var ytMode=false,yt=null,ytReady=null,ytId="",ytTimer=null;
+function ytParse(u){
+  u=String(u).trim();
+  var m=u.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/|\/live\/)([A-Za-z0-9_-]{11})/);
+  return m?m[1]:(/^[A-Za-z0-9_-]{11}$/.test(u)?u:"");
+}
+function ytApi(){
+  if(ytReady)return ytReady;
+  ytReady=new Promise(function(res,rej){
+    if(window.YT&&YT.Player){res();return}
+    window.onYouTubeIframeAPIReady=res;
+    var sc=document.createElement("script");sc.src="https://www.youtube.com/iframe_api";sc.onerror=rej;
+    document.head.appendChild(sc);setTimeout(rej,12000);
+  });
+  return ytReady;
+}
+function ytPlay(id){
+  return ytApi().then(function(){
+    return new Promise(function(res){
+      if(yt&&yt.loadVideoById){yt.loadVideoById(id);res();return}
+      yt=new YT.Player("ytp",{videoId:id,playerVars:{playsinline:1,rel:0,modestbranding:1},
+        events:{onReady:function(){res()},onError:function(e){vs("这个视频没法在 App 里播放（错误码 "+e.data+"），可能禁止了嵌入，换一个视频试试。")}}});
+    });
+  });
+}
+function mergeCues(raw,asr){
+  var out=[],cur=null,max=asr?90:150;
+  raw.forEach(function(c){
+    var t=c.s.replace(/\[[^\]]*\]/g,"").replace(/\s+/g," ").trim();if(!t)return;
+    if(cur&&(cur.en+" "+t).length<=max&&!/[.!?…]["”')]?$/.test(cur.en)&&c.t-cur.last<2){cur.en+=" "+t;cur.last=c.t}
+    else{if(cur)out.push({t:cur.t,en:cur.en,zh:""});cur={t:c.t,en:t,last:c.t}}
+  });
+  if(cur)out.push({t:cur.t,en:cur.en,zh:""});
+  return out;
+}
+async function ytCaptions(id){
+  var clients=[
+    {ctx:{client:{clientName:"ANDROID",clientVersion:"20.10.38",androidSdkVersion:34,hl:"en",gl:"US"}},ua:"com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip"},
+    {ctx:{client:{clientName:"WEB",clientVersion:"2.20250310.01.00",hl:"en",gl:"US"}},ua:null}
+  ],tracks=null,i;
+  for(i=0;i<clients.length&&!tracks;i++){
+    try{
+      var h={"content-type":"application/json"};if(clients[i].ua)h["user-agent"]=clients[i].ua;
+      var r=await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false",{method:"POST",headers:h,body:JSON.stringify({context:clients[i].ctx,videoId:id,contentCheckOk:true,racyCheckOk:true})});
+      if(!r.ok)continue;
+      var d=await r.json(),t=d.captions&&d.captions.playerCaptionsTracklistRenderer&&d.captions.playerCaptionsTracklistRenderer.captionTracks;
+      if(t&&t.length)tracks=t;
+    }catch(e){}
+  }
+  if(!tracks)return [];
+  var en=tracks.filter(function(x){return /^en/i.test(x.languageCode)});
+  var pick=en.filter(function(x){return x.kind!=="asr"})[0]||en[0];
+  if(!pick)return [];
+  var r2=await fetch(pick.baseUrl+(pick.baseUrl.indexOf("fmt=")<0?"&fmt=json3":""));
+  if(!r2.ok)throw {detail:"字幕下载失败（HTTP "+r2.status+"）"};
+  var txt=await r2.text(),j;
+  try{j=JSON.parse(txt)}catch(e){throw {detail:"没有拿到字幕内容（YouTube 可能改了接口）"}}
+  var raw=(j.events||[]).filter(function(e){return e.segs}).map(function(e){
+    return {t:(e.tStartMs||0)/1000,s:e.segs.map(function(g){return g.utf8||""}).join("").replace(/\s+/g," ").trim()};
+  }).filter(function(c){return c.s});
+  return mergeCues(raw,pick.kind==="asr");
+}
+async function ytTranslate(id){
+  var B=20,i,fails=0;
+  window.retryHook=function(n,sec){vs("服务繁忙，"+sec+" 秒后重试（第 "+n+" 次）…")};
+  try{
+    for(i=0;i<vsubs.length&&id===ytId;i+=B){
+      var chunk=vsubs.slice(i,i+B).filter(function(c){return !c.zh});
+      if(!chunk.length)continue;
+      vs("AI 翻译中… "+Math.min(i+B,vsubs.length)+" / "+vsubs.length+"（可以先看，译文会陆续出现）");
+      try{
+        var r=await sample.json("把下面的英文字幕逐条翻译成自然的中文口语。只返回 JSON 数组，每条一个对象：{\"i\":编号,\"zh\":\"译文\"}，条数必须一致，不要漏。\n"+JSON.stringify(chunk.map(function(c,k){return {i:k,en:c.en}})));
+        (Array.isArray(r)?r:[]).forEach(function(o){var c=chunk[o&&o.i];if(c&&o.zh)c.zh=String(o.zh)});
+        fails=0;renderV();
+      }catch(e){if(e&&e.code==="not_granted")throw e;if(++fails>=3)throw e}
+    }
+    if(id===ytId)vs("字幕已就绪，共 "+vsubs.length+" 句。点句子跳转，右滑收藏，点单词查词典。");
+  }finally{window.retryHook=null}
+}
+async function ytLoad(){
+  var id=ytParse($("yurl").value);
+  if(!id){vs("链接看不懂，请粘贴完整的 YouTube 链接。");return}
+  runId++;scanning=false;ytMode=true;ytId=id;vsubs=[];renderV();
+  try{$("vp").pause()}catch(e){}
+  $("vp").classList.add("hide");$("ytwrap").classList.remove("hide");$("yrow").classList.add("hide");
+  vs("正在加载视频…");
+  try{await ytPlay(id)}catch(e){ytReady=null;vs("加载不了 YouTube 播放器，请检查网络是否能访问 YouTube。");return}
+  clearInterval(ytTimer);
+  ytTimer=setInterval(function(){if(ytMode&&yt&&yt.getCurrentTime){try{syncSubs(yt.getCurrentTime())}catch(e){}}},300);
+  if(!cfg.key){vs("视频已加载。先点右上角 ⚙️ 填好 API Key，才能翻译字幕。")}
+  vs("正在获取字幕…");
+  try{
+    var cues=await ytCaptions(id);
+    if(id!==ytId)return;
+    if(!cues.length){vs("没有拿到这个视频的英文字幕。可以点“导入字幕”手动导入，或换一个视频。");return}
+    addSubs(cues);
+    if(!cfg.key){vs("已获取 "+cues.length+" 句字幕。填好 API Key 后可自动翻译。");return}
+    await ytTranslate(id);
+  }catch(e){vs("出错了："+((e&&e.detail)||"请稍后再试")+"。也可以点“导入字幕”手动导入。")}
+}
+$("ytBtn").onclick=function(){$("yrow").classList.toggle("hide")};
+$("ygo").onclick=ytLoad;
 render();
 </script>
 </body>
