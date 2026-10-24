@@ -141,6 +141,11 @@ textarea:focus{outline:0;border-color:var(--acc)}
 .mrow button{padding:6px 12px;border-radius:999px;background:var(--card);font-size:13px}
 .mrow button.on{background:var(--acc);color:var(--accfg)}
 .mx{width:54px}
+.vc{display:flex;gap:10px;padding:10px 0;border-top:.5px solid var(--bd);cursor:pointer}
+.vc img{width:150px;aspect-ratio:16/9;border-radius:10px;object-fit:cover;flex:none;background:#000}
+.vt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.vt b{font-size:15px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.vt span{color:var(--mut);font-size:13px}
 .hide{display:none}
 </style>
 </head>
@@ -168,13 +173,13 @@ textarea:focus{outline:0;border-color:var(--acc)}
   <video id="vp" class="vv" controls playsinline></video>
   <div id="ytwrap" class="hide"><div id="ytp"></div></div>
   <div class="vb">
-    <label class="tab">🎬 选视频<input type="file" id="vf" accept="video/*,.mp4,.mkv,.webm,.mov,.m4v,.avi,.3gp,.ts,.flv,.wmv" hidden></label>
+    <label class="tab">📁 本地视频<input type="file" id="vf" accept="video/*,.mp4,.mkv,.webm,.mov,.m4v,.avi,.3gp,.ts,.flv,.wmv" hidden></label>
     <label class="tab">📄 导入字幕<input type="file" id="sf" accept=".srt,.vtt,.ass,.ssa,.lrc,.sbv,.txt" hidden></label>
-    <button class="tab" id="ytBtn">▶ YouTube</button>
+    <button class="tab" id="ytBtn">🏠 首页</button>
     <button class="tab on" id="scan">🤖 AI 识别字幕</button>
   </div>
-  <div class="yrow hide" id="yrow"><input id="yurl" class="sel" placeholder="粘贴 YouTube 链接…"><button class="tab on" id="ygo">加载</button></div>
-  <div class="vst" id="vst">选一个视频，AI 会自动识别画面里的字幕（需要先在 ⚙️ 填好 Key）。有 .srt/.vtt 字幕文件的话，导入更准。</div>
+  <div class="yrow" id="yrow"><input id="yurl" class="sel" placeholder="搜索 YouTube，或粘贴视频链接…"><button class="tab on" id="ygo">搜索</button></div>
+  <div class="vst" id="vst">点一个 YouTube 视频开始看，字幕会自动出现并翻译；也可以点“本地视频”上传自己的视频。</div>
   <div id="vl"></div>
 </div>
 <div class="ov hide" id="card">
@@ -687,6 +692,7 @@ function addSubs(a){
   nowI=-1;renderV();
 }
 function renderV(){
+  if(src==="home")return;
   $("vl").innerHTML=vsubs.map(function(c){
     var m=Math.floor(c.t/60),sec=Math.floor(c.t%60);
     return S(c.en,c.zh,"",{extra:'<button class="tm" data-t="'+c.t+'">▶ '+m+':'+(sec<10?'0':'')+sec+'</button>'});
@@ -709,7 +715,7 @@ function seekTo(t){
   if(ytMode&&yt&&yt.seekTo){yt.seekTo(Math.max(0,t-0.3),true);yt.playVideo()}
   else{var v=$("vp");v.currentTime=Math.max(0,t-2);v.play()}
 }
-$("bVid").onclick=function(){$("vid").classList.remove("hide")};
+$("bVid").onclick=function(){$("vid").classList.remove("hide");if(src==="home"&&!feedLoaded)loadFeed()};
 $("bVBack").onclick=function(){scanning=false;try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}$("vp").pause();$("vid").classList.add("hide")};
 var vFile=null,vTry=0,autoPending=false,VT=["","video/mp4","video/webm"];
 function setVideo(f,i){
@@ -718,7 +724,7 @@ function setVideo(f,i){
 }
 $("vf").onchange=function(){
   var f=this.files[0];this.value="";if(!f)return;
-  ytMode=false;clearInterval(ytTimer);try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}$("ytwrap").classList.add("hide");$("vp").classList.remove("hide");
+  clearInterval(ytTimer);ytId="";try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}setSrc("local");
   vFile=f;vsubs=[];renderV();runId++;scanning=false;scanPos=0;$("scan").textContent="🤖 AI 识别字幕";
   autoPending=true;vs("已选择："+f.name+"，正在读取…");setVideo(f,0);
 };
@@ -791,6 +797,7 @@ $("sf").onchange=function(){
   f.arrayBuffer().then(function(buf){
     var out=parseSubs(decodeBuf(buf));
     runId++;scanning=false;scanPos=1e9;$("scan").textContent="🤖 AI 识别字幕";
+    if(src==="home")setSrc("local");
     addSubs(out);
     vs(out.length?"已导入 "+out.length+" 句字幕（"+f.name+"）。":"没读到英文字幕，请确认文件是 srt、vtt、ass、ssa、lrc 或 sbv 格式。");
   }).catch(function(){vs("读取字幕文件失败。")});
@@ -988,32 +995,63 @@ function mergeCues(raw,asr){
   if(cur)out.push({t:cur.t,en:cur.en,zh:""});
   return out;
 }
-async function ytCaptions(id){
-  var clients=[
-    {ctx:{client:{clientName:"ANDROID",clientVersion:"20.10.38",androidSdkVersion:34,hl:"en",gl:"US"}},ua:"com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip"},
-    {ctx:{client:{clientName:"WEB",clientVersion:"2.20250310.01.00",hl:"en",gl:"US"}},ua:null}
-  ],tracks=null,i;
-  for(i=0;i<clients.length&&!tracks;i++){
-    try{
-      var h={"content-type":"application/json"};if(clients[i].ua)h["user-agent"]=clients[i].ua;
-      var r=await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false",{method:"POST",headers:h,body:JSON.stringify({context:clients[i].ctx,videoId:id,contentCheckOk:true,racyCheckOk:true})});
-      if(!r.ok)continue;
-      var d=await r.json(),t=d.captions&&d.captions.playerCaptionsTracklistRenderer&&d.captions.playerCaptionsTracklistRenderer.captionTracks;
-      if(t&&t.length)tracks=t;
-    }catch(e){}
+var YT_CLIENTS=[
+  {n:"ANDROID",ctx:{client:{clientName:"ANDROID",clientVersion:"20.10.38",androidSdkVersion:34,hl:"en",gl:"US"}},ua:"com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip"},
+  {n:"IOS",ctx:{client:{clientName:"IOS",clientVersion:"20.10.4",deviceModel:"iPhone16,2",hl:"en",gl:"US"}},ua:"com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)"},
+  {n:"TV",ctx:{client:{clientName:"TVHTML5_SIMPLY_EMBEDDED_PLAYER",clientVersion:"2.0",hl:"en",gl:"US"},thirdParty:{embedUrl:"https://www.youtube.com/"}},ua:null},
+  {n:"WEB",ctx:{client:{clientName:"WEB",clientVersion:"2.20250310.01.00",hl:"en",gl:"US"}},ua:null}
+];
+function unent(x){var t=document.createElement("textarea");t.innerHTML=x;return t.value}
+function parseTimed(txt){
+  txt=String(txt||"").trim();
+  var raw=[],i,x;
+  if(!txt)return raw;
+  if(txt.charAt(0)==="{"){
+    (JSON.parse(txt).events||[]).forEach(function(e){
+      if(!e.segs)return;
+      x=e.segs.map(function(g){return g.utf8||""}).join("").replace(/\s+/g," ").trim();
+      if(x)raw.push({t:(e.tStartMs||0)/1000,s:x});
+    });
+    return raw;
   }
-  if(!tracks)return [];
-  var en=tracks.filter(function(x){return /^en/i.test(x.languageCode)});
-  var pick=en.filter(function(x){return x.kind!=="asr"})[0]||en[0];
-  if(!pick)return [];
-  var r2=await fetch(pick.baseUrl+(pick.baseUrl.indexOf("fmt=")<0?"&fmt=json3":""));
-  if(!r2.ok)throw {detail:"字幕下载失败（HTTP "+r2.status+"）"};
-  var txt=await r2.text(),j;
-  try{j=JSON.parse(txt)}catch(e){throw {detail:"没有拿到字幕内容（YouTube 可能改了接口）"}}
-  var raw=(j.events||[]).filter(function(e){return e.segs}).map(function(e){
-    return {t:(e.tStartMs||0)/1000,s:e.segs.map(function(g){return g.utf8||""}).join("").replace(/\s+/g," ").trim()};
-  }).filter(function(c){return c.s});
-  return mergeCues(raw,pick.kind==="asr");
+  var doc=new DOMParser().parseFromString(txt,"text/xml"),ns=doc.getElementsByTagName("text");
+  if(ns.length){
+    for(i=0;i<ns.length;i++){x=unent(ns[i].textContent).replace(/\s+/g," ").trim();if(x)raw.push({t:parseFloat(ns[i].getAttribute("start")||0),s:x})}
+    return raw;
+  }
+  var ps=doc.getElementsByTagName("p");
+  for(i=0;i<ps.length;i++){x=unent(ps[i].textContent).replace(/\s+/g," ").trim();if(x)raw.push({t:parseFloat(ps[i].getAttribute("t")||0)/1000,s:x})}
+  return raw;
+}
+async function ytCaptions(id){
+  var diag=[],i,f;
+  for(i=0;i<YT_CLIENTS.length;i++){
+    var c=YT_CLIENTS[i],h={"content-type":"application/json"},tracks=null;
+    if(c.ua)h["user-agent"]=c.ua;
+    try{
+      var r=await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false",{method:"POST",headers:h,body:JSON.stringify({context:c.ctx,videoId:id,contentCheckOk:true,racyCheckOk:true})});
+      if(!r.ok){diag.push(c.n+" 播放信息 HTTP "+r.status);continue}
+      var d=await r.json();
+      tracks=d.captions&&d.captions.playerCaptionsTracklistRenderer&&d.captions.playerCaptionsTracklistRenderer.captionTracks;
+      if(!tracks||!tracks.length){diag.push(c.n+" 无字幕轨道"+(d.playabilityStatus&&d.playabilityStatus.status?"（"+d.playabilityStatus.status+"）":""));continue}
+    }catch(e){diag.push(c.n+" 请求失败");continue}
+    var en=tracks.filter(function(x){return /^en/i.test(x.languageCode)});
+    var pick=en.filter(function(x){return x.kind!=="asr"})[0]||en[0],extra="";
+    if(!pick){pick=tracks[0];extra="&tlang=en"}
+    var fmts=["","&fmt=json3","&fmt=srv3"];
+    for(f=0;f<fmts.length;f++){
+      try{
+        var u=pick.baseUrl.replace(/&fmt=[^&]*/,"")+extra+fmts[f];
+        var r2=await fetch(u,{headers:c.ua?{"user-agent":c.ua}:{}}),tx=await r2.text();
+        if(!tx.trim()){diag.push(c.n+" 下载为空（HTTP "+r2.status+"）");continue}
+        var raw=parseTimed(tx);
+        if(raw.length)return mergeCues(raw,pick.kind==="asr");
+        diag.push(c.n+" 解析不到内容");
+      }catch(e){diag.push(c.n+" 下载失败")}
+    }
+  }
+  if(diag.length&&diag.every(function(x){return x.indexOf("无字幕轨道")>-1}))return [];
+  throw {detail:diag.slice(-5).join("；")};
 }
 async function ytTranslate(id){
   var B=20,i,fails=0;
@@ -1032,12 +1070,9 @@ async function ytTranslate(id){
     if(id===ytId)vs("字幕已就绪，共 "+vsubs.length+" 句。点句子跳转，右滑收藏，点单词查词典。");
   }finally{window.retryHook=null}
 }
-async function ytLoad(){
-  var id=ytParse($("yurl").value);
-  if(!id){vs("链接看不懂，请粘贴完整的 YouTube 链接。");return}
-  runId++;scanning=false;ytMode=true;ytId=id;vsubs=[];renderV();
+async function ytLoad(id){
+  runId++;scanning=false;ytId=id;setSrc("yt");vsubs=[];renderV();
   try{$("vp").pause()}catch(e){}
-  $("vp").classList.add("hide");$("ytwrap").classList.remove("hide");$("yrow").classList.add("hide");
   vs("正在加载视频…");
   try{await ytPlay(id)}catch(e){ytReady=null;vs("加载不了 YouTube 播放器，请检查网络是否能访问 YouTube。");return}
   clearInterval(ytTimer);
@@ -1053,8 +1088,75 @@ async function ytLoad(){
     await ytTranslate(id);
   }catch(e){vs("出错了："+((e&&e.detail)||"请稍后再试")+"。也可以点“导入字幕”手动导入。")}
 }
-$("ytBtn").onclick=function(){$("yrow").classList.toggle("hide")};
-$("ygo").onclick=ytLoad;
+var src="home",feedLoaded=false;
+function setSrc(m){
+  src=m;ytMode=(m==="yt");
+  $("vp").classList.toggle("hide",m!=="local");
+  $("ytwrap").classList.toggle("hide",m!=="yt");
+  $("yrow").classList.toggle("hide",m==="local");
+  $("scan").classList.toggle("hide",m!=="local");
+}
+function stopPlayback(){
+  clearInterval(ytTimer);ytId="";runId++;scanning=false;
+  try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}
+  try{$("vp").pause()}catch(e){}
+}
+function txt(x){return x?(x.simpleText||(x.runs&&x.runs.map(function(r){return r.text}).join(""))||x.content||""):""}
+function collectVideos(o,out,seen){
+  if(!o||typeof o!=="object"||out.length>=40)return;
+  if(Array.isArray(o)){o.forEach(function(x){collectVideos(x,out,seen)});return}
+  var v=o.videoRenderer||o.compactVideoRenderer;
+  if(v&&v.videoId&&!seen[v.videoId]){
+    seen[v.videoId]=1;
+    out.push({id:v.videoId,t:txt(v.title),c:txt(v.ownerText||v.longBylineText||v.shortBylineText),d:txt(v.lengthText)});
+    return;
+  }
+  var l=o.lockupViewModel;
+  if(l&&l.contentId&&/VIDEO/.test(l.contentType||"")&&!seen[l.contentId]){
+    var m=l.metadata&&l.metadata.lockupMetadataViewModel,ch="";
+    try{ch=m.metadata.contentMetadataViewModel.metadataRows[0].metadataParts[0].text.content}catch(e){}
+    seen[l.contentId]=1;
+    out.push({id:l.contentId,t:txt(m&&m.title),c:ch,d:""});
+    return;
+  }
+  for(var k in o)collectVideos(o[k],out,seen);
+}
+async function ytCall(ep,body){
+  var r=await fetch("https://www.youtube.com/youtubei/v1/"+ep+"?prettyPrint=false",{method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify(Object.assign({context:{client:{clientName:"WEB",clientVersion:"2.20250310.01.00",hl:"en",gl:"US"}}},body))});
+  if(!r.ok)throw {detail:"HTTP "+r.status};
+  return r.json();
+}
+function renderFeed(items){
+  $("vl").innerHTML=items.filter(function(v){return v.t}).map(function(v){
+    return '<div class="vc" data-id="'+esc(v.id)+'"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/'+esc(v.id)+'/mqdefault.jpg"><div class="vt"><b>'+esc(v.t)+'</b><span>'+esc(v.c)+(v.d?' · '+esc(v.d):'')+'</span></div></div>';
+  }).join("");
+}
+async function loadFeed(){
+  setSrc("home");vs("正在加载 YouTube 首页…");
+  try{
+    var out=[];collectVideos(await ytCall("browse",{browseId:"FEwhat_to_watch"}),out,{});
+    if(!out.length){vs("没拿到首页推荐（YouTube 可能改了接口）。可以直接搜索，或粘贴视频链接。");renderFeed([]);return}
+    feedLoaded=true;renderFeed(out);vs("点一个视频开始看；也可以搜索，或粘贴链接。");
+  }catch(e){vs("加载不了 YouTube 首页："+((e&&e.detail)||"请检查网络")+"。可以直接搜索，或粘贴视频链接。")}
+}
+async function ytSearch(q){
+  stopPlayback();setSrc("home");vs("搜索中…");
+  try{
+    var out=[];collectVideos(await ytCall("search",{query:q}),out,{});
+    renderFeed(out);vs(out.length?"搜索结果：点一个视频开始看。":"没有搜到视频，换个关键词试试。");
+  }catch(e){vs("搜索失败："+((e&&e.detail)||"请检查网络"))}
+}
+function ytGo(){
+  var q=$("yurl").value.trim();if(!q)return;
+  var id=ytParse(q);
+  if(id)ytLoad(id);else ytSearch(q);
+}
+$("ytBtn").onclick=function(){stopPlayback();loadFeed()};
+$("ygo").onclick=ytGo;
+$("yurl").onkeydown=function(e){if(e.key==="Enter")ytGo()};
+$("vl").addEventListener("click",function(e){var c=e.target.closest&&e.target.closest(".vc");if(c)ytLoad(c.dataset.id)});
+setSrc("home");
 render();
 </script>
 </body>
