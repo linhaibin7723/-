@@ -16,8 +16,7 @@ jobs:
           java-version: 21
       - name: 检查签名文件
         run: |
-          test -f debug.keystore || { echo "缺少 debug.keystore，请把它上传到仓库最外层"; exit 1; }
-          keytool -list -keystore debug.keystore -storepass android | grep -i androiddebugkey
+          test -f debug.keystore || { echo "缺少 debug.keystore"; exit 1; }
       - name: 准备文件
         run: |
           [ -f www/index.html ] || { mkdir -p www; cp index.html www/; }
@@ -33,8 +32,6 @@ jobs:
         run: |
           sed -E -i "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]*\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
           printf '\nandroid {\n    signingConfigs {\n        debug {\n            storeFile file("%s/debug.keystore")\n            storePassword "android"\n            keyAlias "androiddebugkey"\n            keyPassword "android"\n        }\n    }\n}\n' "$GITHUB_WORKSPACE" >> android/app/build.gradle
-          grep -n "version" android/app/build.gradle
-          tail -12 android/app/build.gradle
       - name: 打包 APK
         run: |
           cd android
@@ -43,3 +40,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: kouyu-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
