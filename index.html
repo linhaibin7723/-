@@ -146,6 +146,7 @@ textarea:focus{outline:0;border-color:var(--acc)}
 .vt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .vt b{font-size:15px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .vt span{color:var(--mut);font-size:13px}
+.tcs{display:flex;gap:8px;flex-wrap:wrap;padding:4px 0 10px}
 .hide{display:none}
 </style>
 </head>
@@ -1127,25 +1128,31 @@ async function ytCall(ep,body){
   if(!r.ok)throw {detail:"HTTP "+r.status};
   return r.json();
 }
+var TOPICS=[["🎤 TED 演讲","TED talk"],["💬 日常对话","English conversation daily life"],["🎬 影视片段","movie clips English"],["📰 新闻","BBC Learning English"],["🎧 播客","English podcast"],["🐢 慢速英语","slow English listening"]];
 function renderFeed(items){
-  $("vl").innerHTML=items.filter(function(v){return v.t}).map(function(v){
+  var chips='<div class="tcs">'+TOPICS.map(function(t){return '<button class="chip tc" data-q="'+esc(t[1])+'">'+esc(t[0])+'</button>'}).join("")+'</div>';
+  $("vl").innerHTML=chips+items.filter(function(v){return v.t}).map(function(v){
     return '<div class="vc" data-id="'+esc(v.id)+'"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/'+esc(v.id)+'/mqdefault.jpg"><div class="vt"><b>'+esc(v.t)+'</b><span>'+esc(v.c)+(v.d?' · '+esc(v.d):'')+'</span></div></div>';
   }).join("");
 }
+async function ytSearch(q,fallback){
+  stopPlayback();setSrc("home");vs("搜索中…");
+  var out=[];
+  try{
+    var d=await ytCall("search",{query:q});
+    collectVideos(d,out,{});renderFeed(out);
+    if(out.length)vs(fallback?"YouTube 不给未登录的人推荐首页，所以放了几个英语学习分类，点一个就开始；也可以搜索或粘贴链接。":"搜索结果：点一个视频开始看。");
+    else vs("没有搜到视频。接口返回的内容："+Object.keys(d).slice(0,8).join("/")+"（"+JSON.stringify(d).length+" 字节）。换个关键词试试。");
+  }catch(e){vs("搜索失败："+((e&&e.detail)||"请检查网络"))}
+  return out.length;
+}
 async function loadFeed(){
-  setSrc("home");vs("正在加载 YouTube 首页…");
+  setSrc("home");vs("正在加载 YouTube 首页…");renderFeed([]);
   try{
     var out=[];collectVideos(await ytCall("browse",{browseId:"FEwhat_to_watch"}),out,{});
-    if(!out.length){vs("没拿到首页推荐（YouTube 可能改了接口）。可以直接搜索，或粘贴视频链接。");renderFeed([]);return}
-    feedLoaded=true;renderFeed(out);vs("点一个视频开始看；也可以搜索，或粘贴链接。");
-  }catch(e){vs("加载不了 YouTube 首页："+((e&&e.detail)||"请检查网络")+"。可以直接搜索，或粘贴视频链接。")}
-}
-async function ytSearch(q){
-  stopPlayback();setSrc("home");vs("搜索中…");
-  try{
-    var out=[];collectVideos(await ytCall("search",{query:q}),out,{});
-    renderFeed(out);vs(out.length?"搜索结果：点一个视频开始看。":"没有搜到视频，换个关键词试试。");
-  }catch(e){vs("搜索失败："+((e&&e.detail)||"请检查网络"))}
+    if(out.length){feedLoaded=true;renderFeed(out);vs("点一个视频开始看；也可以搜索，或粘贴链接。");return}
+  }catch(e){}
+  feedLoaded=(await ytSearch("TED talk",true))>0;
 }
 function ytGo(){
   var q=$("yurl").value.trim();if(!q)return;
@@ -1155,7 +1162,10 @@ function ytGo(){
 $("ytBtn").onclick=function(){stopPlayback();loadFeed()};
 $("ygo").onclick=ytGo;
 $("yurl").onkeydown=function(e){if(e.key==="Enter")ytGo()};
-$("vl").addEventListener("click",function(e){var c=e.target.closest&&e.target.closest(".vc");if(c)ytLoad(c.dataset.id)});
+$("vl").addEventListener("click",function(e){
+  var t=e.target.closest&&e.target.closest(".tc");if(t){ytSearch(t.dataset.q);return}
+  var c=e.target.closest&&e.target.closest(".vc");if(c)ytLoad(c.dataset.id);
+});
 setSrc("home");
 render();
 </script>
