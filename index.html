@@ -147,6 +147,32 @@ textarea:focus{outline:0;border-color:var(--acc)}
 .vt b{font-size:15px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .vt span{color:var(--mut);font-size:13px}
 .tcs{display:flex;gap:8px;flex-wrap:wrap;padding:4px 0 10px}
+#vid.pm{--bg:#101012;--fg:#f4f4f6;--mut:#8b8b93;--card:transparent;--bd:rgba(255,255,255,.1);--hl:rgba(90,162,255,.18);--acc:#5aa2ff;--accfg:#06121f;--glass:rgba(16,16,18,.88);background:#101012;color:#f4f4f6}
+#vid.pm .vb,#vid.pm .yrow{display:none}
+#vid.pm .vst{padding:0 20px 6px;font-size:12px;min-height:0;color:var(--mut)}
+#vid.pm .vst:not(.show){display:none}
+#vid.pm #ytwrap,#vid.pm .vv{width:calc(100% - 32px);margin:8px auto;border-radius:16px;overflow:hidden;display:block}
+#vid.pm #vl{padding:0 20px}
+#vid.pm #vl .row{border-radius:0}
+#vid.pm #vl .s{background:transparent;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:14px 2px;opacity:.45;transition:opacity .25s}
+#vid.pm #vl .row.revL .s,#vid.pm #vl .row.revR .s{background:#101012}
+#vid.pm #vl .row.now .s{background:transparent;opacity:1}
+#vid.pm #vl .row.now .en{color:var(--acc)}
+#vid.pm #vl .en{font-size:22px;font-weight:600;line-height:1.4}
+#vid.pm #vl .zh{font-size:16px;color:var(--mut);margin-top:2px}
+#vid.pm #vl .tm{display:none}
+#vid.pm .w{border-bottom:0}
+#vl.m-en .zh{display:none}
+#vl.m-zh .en{display:none}
+#vl.m-zh .s.nozh .en{display:block}
+#ctl{padding:8px 18px 6px;background:var(--glass);border-top:.5px solid var(--bd);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.prog{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:13px}
+.prog input{flex:1;accent-color:var(--acc)}
+.cbtns{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
+.cb{min-width:52px;height:46px;border-radius:999px;font-size:15px;color:var(--fg);display:inline-flex;align-items:center;justify-content:center}
+.cb.play{width:64px;height:64px;background:var(--fg);color:#101012}
+.cx{display:flex;gap:10px;justify-content:center;padding:2px 0 4px}
+.cb.sm{height:34px;min-width:0;font-size:13px;padding:0 14px;background:rgba(255,255,255,.08)}
 .hide{display:none}
 </style>
 </head>
@@ -177,11 +203,21 @@ textarea:focus{outline:0;border-color:var(--acc)}
     <label class="tab">📁 本地视频<input type="file" id="vf" accept="video/*,.mp4,.mkv,.webm,.mov,.m4v,.avi,.3gp,.ts,.flv,.wmv" hidden></label>
     <label class="tab">📄 导入字幕<input type="file" id="sf" accept=".srt,.vtt,.ass,.ssa,.lrc,.sbv,.txt" hidden></label>
     <button class="tab" id="ytBtn">🏠 首页</button>
-    <button class="tab on" id="scan">🤖 AI 识别字幕</button>
   </div>
   <div class="yrow" id="yrow"><input id="yurl" class="sel" placeholder="搜索 YouTube，或粘贴视频链接…"><button class="tab on" id="ygo">搜索</button></div>
   <div class="vst" id="vst">点一个 YouTube 视频开始看，字幕会自动出现并翻译；也可以点“本地视频”上传自己的视频。</div>
   <div id="vl"></div>
+  <div id="ctl" class="hide">
+    <div class="prog"><span id="tcur">0:00</span><input type="range" id="seek" min="0" max="1000" value="0"><span id="tdur">0:00</span></div>
+    <div class="cbtns">
+      <button class="cb" id="cSpd">1.0x</button>
+      <button class="cb" id="cPrev" aria-label="上一句"></button>
+      <button class="cb play" id="cPlay" aria-label="播放"></button>
+      <button class="cb" id="cNext" aria-label="下一句"></button>
+      <button class="cb" id="cMode">中英</button>
+    </div>
+    <div class="cx"><button class="cb sm" id="cImp">📄 导入字幕</button><button class="cb sm" id="scan">🤖 AI 识别字幕</button></div>
+  </div>
 </div>
 <div class="ov hide" id="card">
   <header><button class="ib" id="cBack" aria-label="返回">←</button><b>抽卡</b><span class="ib"></span></header>
@@ -254,7 +290,7 @@ function S(en,zh,mid,o){
   o=o||{};
   return '<div class="row"><div class="a1">'+(isFav(en)?'☆ 取消收藏':'★ 收藏')+'</div><div class="a2">'+
     (mid?'<button class="tb">💬<small>溯源</small></button>':'')+(o.del?'<button class="dl">🗑<small>删除</small></button>':'')+'</div>'+
-    '<div class="s" data-en="'+esc(en)+'" data-zh="'+esc(zh||"")+'" data-mid="'+esc(mid||"")+'"><div class="tx"><div class="en">'+wordsHtml(en)+'</div>'+
+    '<div class="s'+(zh?'':' nozh')+'" data-en="'+esc(en)+'" data-zh="'+esc(zh||"")+'" data-mid="'+esc(mid||"")+'"><div class="tx"><div class="en">'+wordsHtml(en)+'</div>'+
     (zh?'<div class="zh">'+esc(zh)+'</div>':'')+(o.extra||'')+'</div><span class="st">'+(isFav(en)?'★':'')+'</span></div></div>';
 }
 function pill(en,zh){if(/[\u4e00-\u9fff]/.test(en)||!/[A-Za-z]/.test(en))return esc(en);return '<span class="hl" data-en="'+esc(en)+'" data-zh="'+esc(zh||"")+'">'+esc(en)+'</span>'}
@@ -342,6 +378,70 @@ document.addEventListener("click",function(e){
   if(s.dataset.open==="1"){swReset(s,true);return}
   say(s.dataset.en);
 });
+/* ===== 播放控制：进度、上一句 / 下一句、倍速、字幕模式 ===== */
+var ICON={
+  play:'<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+  prev:'<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M6 6h2v12H6zM9.5 12L18 18V6z"/></svg>',
+  next:'<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M16 6h2v12h-2zM14.5 12L6 18V6z"/></svg>'
+};
+$("cPrev").innerHTML=ICON.prev;$("cNext").innerHTML=ICON.next;$("cPlay").innerHTML=ICON.play;
+var seeking=false,rates=[1,0.75,0.5,1.25],ri=0,subMode="both";
+try{subMode=localStorage.getItem("subMode")||"both"}catch(e){}
+function pState(){
+  if(ytMode&&yt&&yt.getCurrentTime){
+    try{return {t:yt.getCurrentTime(),d:yt.getDuration()||0,p:yt.getPlayerState()===1}}catch(e){}
+  }
+  var v=$("vp");return {t:v.currentTime||0,d:v.duration||0,p:!v.paused&&!v.ended};
+}
+function pToggle(){
+  var st=pState();
+  if(ytMode&&yt){try{st.p?yt.pauseVideo():yt.playVideo()}catch(e){}}
+  else{var v=$("vp");if(st.p)v.pause();else v.play()}
+  setTimeout(updCtl,150);
+}
+function pSeek(t){
+  t=Math.max(0,t);
+  if(ytMode&&yt&&yt.seekTo)yt.seekTo(t,true);else $("vp").currentTime=t;
+}
+function pRate(r){try{if(ytMode&&yt&&yt.setPlaybackRate)yt.setPlaybackRate(r);else $("vp").playbackRate=r}catch(e){}}
+function resetRate(){ri=0;pRate(1);$("cSpd").textContent="1.0x"}
+function fmt2(t){t=Math.max(0,Math.floor(t||0));var h=Math.floor(t/3600),m=Math.floor(t%3600/60),sec=t%60;return (h?h+":"+("0"+m).slice(-2):m)+":"+("0"+sec).slice(-2)}
+function updCtl(){
+  if(src==="home")return;
+  var st=pState();
+  $("tcur").textContent=fmt2(st.t);$("tdur").textContent=fmt2(st.d);
+  if(!seeking&&st.d)$("seek").value=Math.round(st.t/st.d*1000);
+  $("cPlay").innerHTML=st.p?ICON.pause:ICON.play;
+}
+function curIdx(ct){var i,idx=-1;for(i=0;i<vsubs.length;i++){if(vsubs[i].t<=ct+0.15)idx=i;else break}return idx}
+function cueNav(dir){
+  if(!vsubs.length)return;
+  var st=pState(),idx=curIdx(st.t),j;
+  if(dir>0)j=Math.min(vsubs.length-1,idx+1);
+  else j=(idx>=0&&st.t-vsubs[idx].t>1.5)?idx:Math.max(0,idx-1);
+  pSeek(vsubs[j].t);
+  if(!st.p)pToggle();
+}
+$("cPlay").onclick=pToggle;
+$("cPrev").onclick=function(){cueNav(-1)};
+$("cNext").onclick=function(){cueNav(1)};
+$("cSpd").onclick=function(){ri=(ri+1)%rates.length;pRate(rates[ri]);this.textContent=(rates[ri]===1?"1.0":rates[ri])+"x"};
+$("seek").oninput=function(){seeking=true;$("tcur").textContent=fmt2(this.value/1000*pState().d)};
+$("seek").onchange=function(){pSeek(this.value/1000*pState().d);seeking=false};
+$("cImp").onclick=function(){$("sf").click()};
+function applyMode(){
+  var l=$("vl");l.classList.remove("m-en","m-zh");
+  if(subMode==="en")l.classList.add("m-en");else if(subMode==="zh")l.classList.add("m-zh");
+  $("cMode").textContent={both:"中英",en:"英",zh:"中"}[subMode];
+}
+$("cMode").onclick=function(){
+  subMode={both:"en",en:"zh",zh:"both"}[subMode];
+  try{localStorage.setItem("subMode",subMode)}catch(e){}
+  applyMode();toast({both:"中英对照",en:"只显示英文",zh:"只显示中文"}[subMode],1200);
+};
+$("vp").onplay=$("vp").onpause=updCtl;
+applyMode();
 /* 溯源：回到收藏句子所在的原消息 */
 function toast(m,ms){var d=document.createElement("div");d.className="toast";d.textContent=m;document.body.appendChild(d);setTimeout(function(){d.remove()},ms||2200)}
 function trace(mid,en){
@@ -687,13 +787,18 @@ $("bSet").onclick=function(){
 };
 /* 视频字幕 */
 var vsubs=[],nowI=-1,scanning=false,vurl=null;
-function vs(m){$("vst").textContent=m}
+var vsT=null;
+function vs(m){
+  var e=$("vst");e.textContent=m;e.classList.add("show");clearTimeout(vsT);
+  if(!/出错|失败|没拿到|没有拿到|无法|没有可用|解码不了|看不懂|请先|中断/.test(m))vsT=setTimeout(function(){e.classList.remove("show")},5000);
+}
 function addSubs(a){
   vsubs=vsubs.concat(a).sort(function(x,y){return x.t-y.t}).filter(function(c,i,arr){return !(i&&arr[i-1].en.toLowerCase()===c.en.toLowerCase())});
   nowI=-1;renderV();
 }
 function renderV(){
   if(src==="home")return;
+  nowI=-1;
   $("vl").innerHTML=vsubs.map(function(c){
     var m=Math.floor(c.t/60),sec=Math.floor(c.t%60);
     return S(c.en,c.zh,"",{extra:'<button class="tm" data-t="'+c.t+'">▶ '+m+':'+(sec<10?'0':'')+sec+'</button>'});
@@ -706,6 +811,7 @@ document.addEventListener("click",function(e){
 var lastTouch=0;
 ["touchstart","wheel"].forEach(function(ev){$("vl").addEventListener(ev,function(){lastTouch=Date.now()},{passive:true})});
 function syncSubs(ct){
+  updCtl();
   var idx=-1,i;
   for(i=0;i<vsubs.length;i++){if(vsubs[i].t<=ct)idx=i;else break}
   if(idx!==nowI){nowI=idx;var rows=$("vl").children;for(i=0;i<rows.length;i++)rows[i].classList.toggle("now",i===idx);
@@ -717,7 +823,10 @@ function seekTo(t){
   else{var v=$("vp");v.currentTime=Math.max(0,t-2);v.play()}
 }
 $("bVid").onclick=function(){$("vid").classList.remove("hide");if(src==="home"&&!feedLoaded)loadFeed()};
-$("bVBack").onclick=function(){scanning=false;try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}$("vp").pause();$("vid").classList.add("hide")};
+$("bVBack").onclick=function(){
+  if(src!=="home"){stopPlayback();setSrc("home");renderFeed(lastFeed);vs("点一个视频开始看；也可以搜索，或粘贴链接。");if(!lastFeed.length)loadFeed();return}
+  scanning=false;$("vid").classList.add("hide");
+};
 var vFile=null,vTry=0,autoPending=false,VT=["","video/mp4","video/webm"];
 function setVideo(f,i){
   if(vurl)URL.revokeObjectURL(vurl);
@@ -725,7 +834,7 @@ function setVideo(f,i){
 }
 $("vf").onchange=function(){
   var f=this.files[0];this.value="";if(!f)return;
-  clearInterval(ytTimer);ytId="";try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}setSrc("local");
+  clearInterval(ytTimer);ytId="";try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}setSrc("local");resetRate();
   vFile=f;vsubs=[];renderV();runId++;scanning=false;scanPos=0;$("scan").textContent="🤖 AI 识别字幕";
   autoPending=true;vs("已选择："+f.name+"，正在读取…");setVideo(f,0);
 };
@@ -981,8 +1090,8 @@ function ytPlay(id){
   return ytApi().then(function(){
     return new Promise(function(res){
       if(yt&&yt.loadVideoById){yt.loadVideoById(id);res();return}
-      yt=new YT.Player("ytp",{videoId:id,playerVars:{playsinline:1,rel:0,modestbranding:1},
-        events:{onReady:function(){res()},onError:function(e){vs("这个视频没法在 App 里播放（错误码 "+e.data+"），可能禁止了嵌入，换一个视频试试。")}}});
+      yt=new YT.Player("ytp",{videoId:id,playerVars:{playsinline:1,rel:0,modestbranding:1,controls:0,disablekb:1,fs:0,iv_load_policy:3,cc_load_policy:0},
+        events:{onReady:function(){try{yt.unloadModule("captions")}catch(e){}res()},onStateChange:function(e){if(e.data===1){try{yt.unloadModule("captions")}catch(x){}}},onError:function(e){vs("这个视频没法在 App 里播放（错误码 "+e.data+"），可能禁止了嵌入，换一个视频试试。")}}});
     });
   });
 }
@@ -1072,7 +1181,7 @@ async function ytTranslate(id){
   }finally{window.retryHook=null}
 }
 async function ytLoad(id){
-  runId++;scanning=false;ytId=id;setSrc("yt");vsubs=[];renderV();
+  runId++;scanning=false;ytId=id;setSrc("yt");resetRate();vsubs=[];renderV();
   try{$("vp").pause()}catch(e){}
   vs("正在加载视频…");
   try{await ytPlay(id)}catch(e){ytReady=null;vs("加载不了 YouTube 播放器，请检查网络是否能访问 YouTube。");return}
@@ -1096,6 +1205,8 @@ function setSrc(m){
   $("ytwrap").classList.toggle("hide",m!=="yt");
   $("yrow").classList.toggle("hide",m==="local");
   $("scan").classList.toggle("hide",m!=="local");
+  $("vid").classList.toggle("pm",m!=="home");
+  $("ctl").classList.toggle("hide",m==="home");
 }
 function stopPlayback(){
   clearInterval(ytTimer);ytId="";runId++;scanning=false;
@@ -1129,7 +1240,9 @@ async function ytCall(ep,body){
   return r.json();
 }
 var TOPICS=[["🎤 TED 演讲","TED talk"],["💬 日常对话","English conversation daily life"],["🎬 影视片段","movie clips English"],["📰 新闻","BBC Learning English"],["🎧 播客","English podcast"],["🐢 慢速英语","slow English listening"]];
+var lastFeed=[];
 function renderFeed(items){
+  lastFeed=items;
   var chips='<div class="tcs">'+TOPICS.map(function(t){return '<button class="chip tc" data-q="'+esc(t[1])+'">'+esc(t[0])+'</button>'}).join("")+'</div>';
   $("vl").innerHTML=chips+items.filter(function(v){return v.t}).map(function(v){
     return '<div class="vc" data-id="'+esc(v.id)+'"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/'+esc(v.id)+'/mqdefault.jpg"><div class="vt"><b>'+esc(v.t)+'</b><span>'+esc(v.c)+(v.d?' · '+esc(v.d):'')+'</span></div></div>';
