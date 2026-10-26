@@ -173,6 +173,10 @@ textarea:focus{outline:0;border-color:var(--acc)}
 .cb.play{width:64px;height:64px;background:var(--fg);color:#101012}
 .cx{display:flex;gap:10px;justify-content:center;padding:2px 0 4px}
 .cb.sm{height:34px;min-width:0;font-size:13px;padding:0 14px;background:rgba(255,255,255,.08)}
+#vid.pm #ytwrap.hide,#vid.pm .vv.hide{display:none}
+.mode2{flex:none;padding:7px 15px;border-radius:999px;background:var(--card);border:.5px solid var(--bd);font-size:14px}
+.sys{text-align:center;color:var(--mut);font-size:13px;margin:16px 0 6px}
+.tgrid{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 .hide{display:none}
 </style>
 </head>
@@ -183,7 +187,7 @@ textarea:focus{outline:0;border-color:var(--acc)}
   <span><button class="ib" id="bSet" aria-label="朗读设置">⚙️</button><button class="ib" id="bVid" aria-label="视频字幕">🎬</button><button class="ib" id="bNew" aria-label="新对话">🗑</button></span>
 </header>
 <div id="chat"></div>
-<div class="modes"><button class="mode on" data-m="say">英语怎么说</button><button class="mode" data-m="mean">什么意思</button><button class="mode" data-m="chat">💬 对话</button></div>
+<div class="modes"><button class="mode on" data-m="say">英语怎么说</button><button class="mode" data-m="mean">什么意思</button><button class="mode" data-m="chat">💬 对话</button><button class="mode2" id="tpBtn" style="display:none">🎭 主题</button></div>
 <div class="inp">
   <textarea id="q" rows="1" placeholder="想说什么？用中文问，或贴英文…"></textarea>
   <button id="send" aria-label="发送">➤</button>
@@ -520,15 +524,17 @@ document.addEventListener("click",function(e){
 function render(){
   var c=$("chat"),h="";
   if(!msgs.length){
-    h='<div class="hello"><h2>今天想学哪句？</h2>'+HELLO[mode]+'<div class="chips">'+SUGGS[mode].map(function(s){return '<button class="chip">'+s+'</button>'}).join("")+'</div>'+(apiKey?'':'<div class="chips"><button class="chip kb" id="keyBtn">🔑 设置 API Key</button></div>')+'</div>';
+    h='<div class="hello"><h2>今天想学哪句？</h2>'+HELLO[mode]+'<div class="chips">'+(mode==="chat"?CTOPICS.map(function(t,i){return '<button class="chip tp" data-i="'+i+'">'+esc(t[0])+'</button>'}).join(""):SUGGS[mode].map(function(s){return '<button class="chip">'+s+'</button>'}).join(""))+'</div>'+(apiKey?'':'<div class="chips"><button class="chip kb" id="keyBtn">🔑 设置 API Key</button></div>')+'</div>';
   }else msgs.forEach(function(m){
-    if(m.role==="u")h+='<div class="u" data-mid="'+esc(m.id||"")+'">'+esc(m.t)+'</div>';
+    if(m.role==="s")h+='<div class="sys">—— 主题：'+esc(m.t)+' ——</div>';
+    else if(m.role==="u")h+='<div class="u" data-mid="'+esc(m.id||"")+'">'+esc(m.t)+'</div>';
     else if(m.err)h+='<div class="a err">'+esc(m.err)+'</div>';
     else h+=aiHtml(m.d,m.mode||"say",m.id);
   });
   if(busy)h+='<div class="th">思考中…</div>';
   c.innerHTML=h;c.scrollTop=c.scrollHeight;
-  Array.prototype.forEach.call(c.querySelectorAll(".chip:not(.kb)"),function(b){b.onclick=function(){$("q").value=b.textContent;ask()}});
+  Array.prototype.forEach.call(c.querySelectorAll(".chip:not(.kb):not(.tp)"),function(b){b.onclick=function(){$("q").value=b.textContent;ask()}});
+  Array.prototype.forEach.call(c.querySelectorAll(".tp"),function(b){b.onclick=function(){topicStart(CTOPICS[+b.dataset.i])}});
   var kb=$("keyBtn");if(kb)kb.onclick=function(){$("bSet").click()};
   $("send").disabled=busy;
 }
@@ -603,14 +609,66 @@ sample={
 };
 var mode="say";
 var SUGGS={say:["你吃了吗？","我有点累了","能再说一遍吗？","我马上就到"],mean:["What's up?","Long time no see.","I'm running late.","Let's grab some coffee."],chat:["Hi! How's it going?","我想练习点餐","Let's talk about the weekend."]};
-var HELLO={say:"用中文问怎么说，或贴一句英文，我帮你改得更地道。",mean:"贴一句英文，我告诉你它是什么意思。",chat:"随便聊，英文中文都行，我会顺手帮你改句子。"};
+var HELLO={say:"用中文问怎么说，或贴一句英文，我帮你改得更地道。",mean:"贴一句英文，我告诉你它是什么意思。",chat:"选一个生活场景开始练习，也可以直接随便聊。"};
 var PH={say:"用中文问怎么说，或贴一句英文…",mean:"贴一句英文，问我什么意思…",chat:"用英文或中文跟我聊天…"};
-function chatPrompt(q){
-  var h=msgs.filter(function(m){return m.mode==="chat"&&!m.err}).slice(-8).map(function(m){
+var CTOPICS=[
+  ["🍔 点餐","在餐厅或快餐店点餐。你是服务员。"],
+  ["🛒 购物","在商店买东西，问价格、尺码和折扣。你是店员。"],
+  ["🧭 问路","在街上问路，问怎么坐公共交通。你是路人。"],
+  ["✈️ 机场","在机场值机、过安检、登机。你是机场工作人员。"],
+  ["🏨 酒店","在酒店办理入住、退房，提出需求。你是前台。"],
+  ["🩺 看医生","向医生描述身体不舒服。你是医生。"],
+  ["🏠 租房","看房和谈租房条件。你是房东。"],
+  ["💼 面试","参加求职面试。你是面试官。"],
+  ["📞 打电话","打电话预约或查询。你是接电话的人。"],
+  ["🏦 银行","在银行开户、转账或办卡。你是柜员。"],
+  ["🚕 打车","打车，和司机沟通路线。你是司机。"],
+  ["☕ 咖啡店","在咖啡店点饮品。你是咖啡师。"],
+  ["🤝 交朋友","认识新朋友，介绍自己，聊兴趣爱好。你是新认识的朋友。"],
+  ["🌤 聊天气","聊天气和周末计划。你是同事。"],
+  ["💪 健身","在健身房咨询课程和器材。你是教练。"],
+  ["📦 退货","联系客服处理快递或退货。你是客服。"]
+];
+var chatTopic=null;
+try{chatTopic=JSON.parse(localStorage.getItem("ctopic")||"null")}catch(e){}
+function updTp(){var b=$("tpBtn");if(b)b.textContent="🎭 "+(chatTopic?chatTopic[0].replace(/^\S+\s/,""):"主题")}
+function chatPrompt(q,opening){
+  var k=-1,i;
+  for(i=msgs.length-1;i>=0;i--){if(msgs[i].role==="s"){k=i;break}}
+  var h=msgs.slice(k+1).filter(function(m){return m.mode==="chat"&&!m.err}).slice(-8).map(function(m){
     return m.role==="u"?"Student: "+m.t:"You: "+((m.d&&m.d.en)||"");
   }).join("\n");
-  return P_CHAT+"\n\n对话记录：\n"+(h||"（刚开始）")+"\n\n学生刚说："+q;
+  var tp=chatTopic?"\n\n场景：「"+chatTopic[0]+"」——"+chatTopic[1]+"请一直留在这个场景里，像真实的生活对话一样自然推进，每次只说一两句。":"";
+  return P_CHAT+tp+"\n\n对话记录：\n"+(h||"（刚开始）")+"\n\n"+(opening?"请你先开口，用一句简单的英文开始这个场景的对话，fix 填 null。":"学生刚说："+q);
 }
+function topicStart(t){
+  if(busy)return;
+  chatTopic=t;try{localStorage.setItem("ctopic",JSON.stringify(t))}catch(e){}
+  if(mode!=="chat")setMode("chat");
+  updTp();
+  var mid=String(Date.now());
+  msgs.push({role:"s",mode:"sys",t:t[0]});busy=true;render();
+  if(!sample){busy=false;msgs.push({role:"a",err:"当前环境无法使用 AI 功能。"});render();return}
+  sample.json(chatPrompt("",true)).then(function(r){
+    msgs.push({role:"a",d:r,mode:"chat",id:mid});
+    if(r&&r.en)setTimeout(function(){say(r.en)},200);
+  }).catch(function(e){
+    msgs.push({role:"a",err:e&&e.code==="not_granted"?"请先点右上角 ⚙️，填写 API Key。":"出错了："+((e&&e.detail)||"请再试一次")});
+  }).then(function(){busy=false;msgs=msgs.slice(-300);sv("msgs",msgs);render()});
+}
+$("tpBtn").onclick=function(){
+  $("sheet").innerHTML='<b>选一个生活场景</b><div class="tgrid">'+CTOPICS.map(function(t,i){return '<button class="chip tp2" data-i="'+i+'">'+esc(t[0])+'</button>'}).join("")+'</div><div class="acts"><button id="tpFree">不用场景，自由聊</button></div>';
+  $("mask").classList.remove("hide");
+  $("sheet").onclick=function(e){
+    var b=e.target.closest&&e.target.closest(".tp2");
+    if(b){$("mask").classList.add("hide");topicStart(CTOPICS[+b.dataset.i]);return}
+    if(e.target.id==="tpFree"){
+      chatTopic=null;try{localStorage.removeItem("ctopic")}catch(e2){}
+      msgs.push({role:"s",mode:"sys",t:"自由聊天"});sv("msgs",msgs);
+      $("mask").classList.add("hide");updTp();render();toast("已切换为自由聊天",1200);
+    }
+  };
+};
 function ask(){
   var q=$("q").value.trim();if(!q||busy)return;
   $("q").value="";$("q").style.height="";
@@ -629,7 +687,8 @@ var MN={say:"英语怎么说",mean:"什么意思",chat:"对话"};
 function setMode(m){
   mode=m;
   Array.prototype.forEach.call(document.querySelectorAll(".mode"),function(x){x.classList.toggle("on",x.dataset.m===m)});
-  $("q").placeholder=PH[mode];render();
+  $("q").placeholder=PH[mode];
+  $("tpBtn").style.display=m==="chat"?"":"none";updTp();render();
 }
 Array.prototype.forEach.call(document.querySelectorAll(".mode"),function(b){b.onclick=function(){setMode(b.dataset.m)}});
 var cx0=null;
@@ -1280,6 +1339,27 @@ $("vl").addEventListener("click",function(e){
   var c=e.target.closest&&e.target.closest(".vc");if(c)ytLoad(c.dataset.id);
 });
 setSrc("home");
+/* ===== 手机返回键：先关当前层，回到主页后按两次才退出 ===== */
+var exitArmed=false,exitT=null,trapOn=false;
+function vis(id){var e=$(id);return !!e&&!e.classList.contains("hide")}
+function pushTrap(){try{history.pushState({r:1},"")}catch(e){}}
+document.addEventListener("pointerdown",function(){if(!trapOn){trapOn=true;pushTrap()}},true);
+document.addEventListener("touchstart",function(){if(exitArmed){exitArmed=false;clearTimeout(exitT);pushTrap()}},true);
+window.addEventListener("popstate",function(){
+  if(!trapOn)return;
+  var closed=true;
+  if(vis("pmask")){$("pmask").classList.add("hide");stopLoop()}
+  else if(vis("mask")){$("mask").classList.add("hide");render()}
+  else if(vis("card")){$("cBack").click()}
+  else if(vis("col")){$("bBack").click()}
+  else if(vis("vid")){$("bVBack").click()}
+  else closed=false;
+  if(closed){pushTrap();return}
+  exitArmed=true;toast("再按一次退出应用",1800);
+  clearTimeout(exitT);
+  exitT=setTimeout(function(){if(exitArmed){exitArmed=false;pushTrap()}},2000);
+});
+updTp();
 render();
 </script>
 </body>
