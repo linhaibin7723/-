@@ -543,6 +543,7 @@ function render(){
 var BASE="你是一位美式英语口语老师，学生是中文母语的初学者。只用简单、自然、日常的美式口语（多用缩写，如 gonna、wanna、I'm），不要书面语或复杂语法。只返回 JSON，不要任何其他文字或代码块标记。";
 var P_SAY=BASE+`
 学生会输入一句话。
+【最重要】忠实原意：学生想表达什么，英文就说什么。不能删掉任何细节（人名、专有名词、数量、修饰语），不能加入学生没说的内容，不能把语气变弱或变强（例如“像……一样”不能改成“有点像”，“非常”不能漏掉）。zh 字段要把 en 老老实实翻回中文，让学生能核对是否和自己的原话一致。如果为了地道改动了说法，在 note 里说明改了哪里、为什么。
 - 如果是中文：给出最自然的美式口语说法，mine 填 null。
 - 如果是英文：mine 填学生的原句和它的中文翻译；note 先用中文指出原句的语法或用词问题（最多2点，没问题就写“原句没问题”），再说明新说法为什么更地道；en 给出更地道的说法。
 格式：{"mine":{"en":"学生原句","zh":"原句的中文意思"}或null,"en":"最自然的一句英文","zh":"这句的中文意思","note":"中文讲解（2-3句）","vocab":[{"w":"关键词或搭配","m":"中文意思"}],"examples":[{"en":"例句","zh":"中文翻译"},{"en":"例句","zh":"中文翻译"}],"replies":["常见的自然回答1","常见的自然回答2"]}`;
@@ -550,7 +551,7 @@ var P_MEAN=BASE+`
 学生会给你一句英文（或一个词、短语），请讲解它的意思。如果学生给的是中文，就当作想知道英文说法来回答。
 格式：{"mine":null,"en":"学生给的原句（原样）","zh":"中文意思","note":"用中文讲清楚意思、使用场合和语气（2-3句）","vocab":[{"w":"关键词或搭配","m":"中文意思"}],"examples":[{"en":"例句","zh":"中文翻译"},{"en":"例句","zh":"中文翻译"}],"replies":["常见的自然回答1","常见的自然回答2"]}`;
 var P_CHAT="你是一位友善的美国朋友，正在陪中文母语的初学者聊天练口语。只用简单、自然、日常的美式口语。每次只回一两句英文，常常用一个简单的问题接着聊。学生写中文时，也用英文自然回复。只返回 JSON，不要任何其他文字或代码块标记。"+`
-fix：如果学生刚才写的是英文且有问题，给出更自然的说法和一句中文说明；如果学生写的是中文，给出这句话的英文说法；英文没问题就填 null。
+fix：更自然的说法必须保持学生原意，不能删减、增加或弱化内容。如果学生刚才写的是英文且有问题，给出更自然的说法和一句中文说明；如果学生写的是中文，给出这句话的英文说法；英文没问题就填 null。
 格式：{"fix":{"en":"更自然的说法","note":"一句中文说明"}或null,"en":"你的英文回复","zh":"回复的中文意思"}`;
 /* 自带 Key：支持 智谱 GLM / Anthropic Claude */
 var P={zhipu:{text:"glm-5.2",vis:"glm-4.6v-flash"},anthropic:{text:"claude-sonnet-5-5",vis:"claude-sonnet-5-5"}};
@@ -1340,25 +1341,36 @@ $("vl").addEventListener("click",function(e){
 });
 setSrc("home");
 /* ===== 手机返回键：先关当前层，回到主页后按两次才退出 ===== */
-var exitArmed=false,exitT=null,trapOn=false;
+var exitArmed=false,exitT=null,trapOn=false,AppP=null;
+try{if(window.Capacitor&&Capacitor.isPluginAvailable&&Capacitor.isPluginAvailable("App"))AppP=Capacitor.Plugins.App||Capacitor.registerPlugin("App")}catch(e){}
 function vis(id){var e=$(id);return !!e&&!e.classList.contains("hide")}
+function closeTop(){
+  if(vis("pmask")){$("pmask").classList.add("hide");stopLoop();return true}
+  if(vis("mask")){$("mask").classList.add("hide");render();return true}
+  if(vis("card")){$("cBack").click();return true}
+  if(vis("col")){$("bBack").click();return true}
+  if(vis("vid")){$("bVBack").click();return true}
+  return false;
+}
 function pushTrap(){try{history.pushState({r:1},"")}catch(e){}}
-document.addEventListener("pointerdown",function(){if(!trapOn){trapOn=true;pushTrap()}},true);
-document.addEventListener("touchstart",function(){if(exitArmed){exitArmed=false;clearTimeout(exitT);pushTrap()}},true);
-window.addEventListener("popstate",function(){
-  if(!trapOn)return;
-  var closed=true;
-  if(vis("pmask")){$("pmask").classList.add("hide");stopLoop()}
-  else if(vis("mask")){$("mask").classList.add("hide");render()}
-  else if(vis("card")){$("cBack").click()}
-  else if(vis("col")){$("bBack").click()}
-  else if(vis("vid")){$("bVBack").click()}
-  else closed=false;
-  if(closed){pushTrap();return}
-  exitArmed=true;toast("再按一次退出应用",1800);
-  clearTimeout(exitT);
-  exitT=setTimeout(function(){if(exitArmed){exitArmed=false;pushTrap()}},2000);
-});
+if(AppP&&AppP.addListener){
+  AppP.addListener("backButton",function(){
+    if(closeTop())return;
+    if(exitArmed){AppP.exitApp();return}
+    exitArmed=true;toast("再按一次退出应用",1800);
+    clearTimeout(exitT);exitT=setTimeout(function(){exitArmed=false},2000);
+  });
+}else{
+  document.addEventListener("pointerdown",function(){if(!trapOn){trapOn=true;pushTrap()}},true);
+  document.addEventListener("touchstart",function(){if(exitArmed){exitArmed=false;clearTimeout(exitT);pushTrap()}},true);
+  window.addEventListener("popstate",function(){
+    if(!trapOn)return;
+    if(closeTop()){pushTrap();return}
+    exitArmed=true;toast("再按一次退出应用",1800);
+    clearTimeout(exitT);
+    exitT=setTimeout(function(){if(exitArmed){exitArmed=false;pushTrap()}},2000);
+  });
+}
 updTp();
 render();
 </script>

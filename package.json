@@ -2,5 +2,8 @@
   "name": "kouyu-app",
   "version": "1.0.0",
   "private": true,
-  "description": "AI 美式口语学习（Capacitor 安卓壳）"
+  "description": "AI 美式口语学习（Capacitor 安卓壳）",
+  "dependencies": {
+    "@capacitor/app": "latest"
+  }
 }
