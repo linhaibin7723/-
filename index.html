@@ -564,10 +564,8 @@ function ytApi(){if(ytReady)return ytReady;ytReady=new Promise(function(res,rej)
 function ytPlay(id){
   return ytApi().then(function(){
     return new Promise(function(res, rej){
-      // 每次创建前彻底清空旧播放器
       try{ if(yt){ try{yt.destroy()}catch(e){} yt=null; } }catch(e){}
       $("ytwrap").innerHTML = '<div id="ytp"></div>';
-      
       var timeout = setTimeout(function(){ rej("加载超时"); }, 15000);
       var settled = false;
       function done(ok, err){
@@ -576,7 +574,6 @@ function ytPlay(id){
         clearTimeout(timeout);
         if(ok) res(); else rej(err || "未知错误");
       }
-      
       try {
         yt = new YT.Player("ytp", {
           videoId: id,
@@ -638,7 +635,7 @@ async function fetchTracks(tracks, ua){
 async function ytCaptions(id){
   var diag=[], i;
 
-  // 方案 0：直接 timedtext（部分环境可用）
+  // 方案 0：直接 timedtext
   try {
     var urls = [
       "https://www.youtube.com/api/timedtext?v="+id+"&lang=en&fmt=json3",
@@ -724,7 +721,6 @@ async function ytCaptions(id){
 async function ytTranslate(id){var B=20,i,fails=0;window.retryHook=function(n,sec){vs("服务繁忙，"+sec+" 秒后重试（第 "+n+" 次）…")};try{for(i=0;i<vsubs.length&&id===ytId;i+=B){var chunk=vsubs.slice(i,i+B).filter(function(c){return !c.zh});if(!chunk.length)continue;vs("AI 翻译中… "+Math.min(i+B,vsubs.length)+" / "+vsubs.length+"（可以先看，译文会陆续出现）");try{var r=await sample.json("把下面的英文字幕逐条翻译成自然的中文口语。只返回 JSON 数组，每条一个对象：{\"i\":编号,\"zh\":\"译文\"}，条数必须一致，不要漏。\n"+JSON.stringify(chunk.map(function(c,k){return {i:k,en:c.en}})));(Array.isArray(r)?r:[]).forEach(function(o){var c=chunk[o&&o.i];if(c&&o.zh)c.zh=String(o.zh)});fails=0;renderV()}catch(e){if(e&&e.code==="not_granted")throw e;if(++fails>=3)throw e}}if(id===ytId)vs("字幕已就绪，共 "+vsubs.length+" 句。点句子跳转，右滑收藏，点单词查词典。")}finally{window.retryHook=null}}
 
 async function ytLoad(id, title){
-  // 切换前彻底停止上一个视频
   clearInterval(ytTimer); ytTimer=null;
   runId++; scanning=false;
   try{ if(yt){ try{yt.stopVideo()}catch(e){} try{yt.pauseVideo()}catch(e){} try{yt.destroy()}catch(e){} } }catch(e){}
@@ -749,7 +745,7 @@ async function ytLoad(id, title){
     return;
   }
 
-  if (id !== ytId) return; // 加载过程中用户已切换走
+  if (id !== ytId) return;
 
   clearInterval(ytTimer);
   ytTimer = setInterval(function(){
@@ -811,7 +807,11 @@ async function ytSearch(q,fallback){stopPlayback();setSrc("home");vs("搜索中�
 async function loadFeed(){setSrc("home");vs("正在加载 YouTube 首页…");renderFeed([]);try{var out=[];collectVideos(await ytCall("browse",{browseId:"FEwhat_to_watch"}),out,{});if(out.length){feedLoaded=true;renderFeed(out);vs("点一个视频开始看；也可以搜索，或粘贴链接。");return}}catch(e){}feedLoaded=(await ytSearch("TED talk",true))>0}
 function ytGo(){var q=$("yurl").value.trim();if(!q)return;var id=ytParse(q);if(id)ytLoad(id);else ytSearch(q)}
 $("ytBtn").onclick=function(){stopPlayback();loadFeed()};$("ygo").onclick=ytGo;$("yurl").onkeydown=function(e){if(e.key==="Enter")ytGo()};
-$("vl").addEventListener("click",function(e){var t=e.target.closest&&e.target.closest(".tc");if(t){ytSearch(t.dataset.q);return}var c=e.target.closest&&e.target.closest(".vc");if(c)ytLoad(c.dataset.id)});
+$("vl").addEventListener("click",function(e){
+  var t=e.target.closest&&e.target.closest(".tc");
+  if(t){ ytSearch(t.dataset.q); return; }
+  // .vc 用 inline onclick 传正确 id；不要 ytLoad(dataset.id)（无属性会变成 undefined → Invalid video id）
+});
 
 setSrc("home");
 /* 返回键 */
