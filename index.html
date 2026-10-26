@@ -75,30 +75,36 @@ textarea{background:var(--card);border:.5px solid var(--bd);border-radius:21px}t
 .st{color:#ff9f0a;font-size:16px;flex:none;width:18px;text-align:center}
 .yrow{display:flex;gap:8px;padding:0 12px 8px}.yrow input{flex:1}
 #ytwrap{width:100%;aspect-ratio:16/9;max-height:34vh;background:#000}#ytwrap iframe{width:100%;height:100%;border:0}
-.vc{display:flex;gap:10px;padding:10px 0;border-top:.5px solid var(--bd);cursor:pointer}
-.vc img{width:150px;aspect-ratio:16/9;border-radius:10px;object-fit:cover;flex:none;background:#000}
-.vt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
-.vt b{font-size:15px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.vt span{color:var(--mut);font-size:13px}.tcs{display:flex;gap:8px;flex-wrap:wrap;padding:4px 0 10px}
-#vid.pm{--bg:#101012;--fg:#f4f4f6;--mut:#8b8b93;--card:transparent;--bd:rgba(255,255,255,.1);--hl:rgba(90,162,255,.18);--acc:#5aa2ff;--accfg:#06121f;--glass:rgba(16,16,18,.88);background:#101012;color:#f4f4f6}
-#vid.pm .vb,#vid.pm .yrow{display:none}#vid.pm .vst{padding:0 20px 6px;font-size:12px;min-height:0;color:var(--mut)}#vid.pm .vst:not(.show){display:none}
-#vid.pm #ytwrap,#vid.pm .vv{width:calc(100% - 32px);margin:8px auto;border-radius:16px;overflow:hidden;display:block}
-#vid.pm #vl{padding:0 20px}#vid.pm #vl .row{border-radius:0}
-#vid.pm #vl .s{background:transparent;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:14px 2px;opacity:.45;transition:opacity .25s}
-#vid.pm #vl .row.revL .s,#vid.pm #vl .row.revR .s{background:#101012}#vid.pm #vl .row.now .s{background:transparent;opacity:1}
+/* 极简深色语料库列表风格 */
+.vc{display:flex;gap:12px;padding:12px;margin-bottom:12px;background:#1e1e1e;border-radius:16px;cursor:pointer;align-items:center;transition:background .2s}
+.vc:active{background:#2a2a2a}
+.vc img,.vc .cover{width:130px;height:74px;border-radius:10px;object-fit:cover;flex:none;background:#333;display:flex;align-items:center;justify-content:center;font-size:24px}
+.vt{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.vt b{font-size:15px;font-weight:500;line-height:1.4;color:#f1f1f1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vt span{color:#888;font-size:12px}
+.tcs{display:flex;gap:8px;flex-wrap:wrap;padding:8px 0 16px}
+/* 沉浸式播放 */
+#vid.pm{--bg:#0f0f0f;--fg:#f1f1f1;--mut:#aaa;--card:#1f1f1f;--bd:#333;--hl:rgba(255,255,255,.1);--acc:#3ea6ff;--accfg:#0f0f0f;--glass:#0f0f0f;background:#0f0f0f;color:#f1f1f1}
+#vid.pm .vb,#vid.pm .yrow{display:none}
+#vid.pm .vst{padding:0 20px 6px;font-size:13px;min-height:0;color:var(--mut)}
+#vid.pm .vst:not(.show){display:none}
+#vid.pm #ytwrap,#vid.pm .vv{width:calc(100% - 32px);margin:12px auto;border-radius:16px;overflow:hidden;display:block;background:#000}
+#vid.pm #vl{padding:0 20px}#vid.pm #vl .row{border-radius:0;border:none;background:transparent}
+#vid.pm #vl .s{background:transparent;border:0;box-shadow:none;padding:16px 2px;opacity:.45;transition:opacity .25s}
+#vid.pm #vl .row.now .s{background:transparent;opacity:1}
 #vid.pm #vl .row.now .en{color:var(--acc)}#vid.pm #vl .en{font-size:22px;font-weight:600;line-height:1.4}
-#vid.pm #vl .zh{font-size:16px;color:var(--mut);margin-top:2px}#vid.pm #vl .tm{display:none}#vid.pm .w{border-bottom:0}
+#vid.pm #vl .zh{font-size:16px;color:var(--mut);margin-top:4px}#vid.pm #vl .tm{display:none}#vid.pm .w{border-bottom:0}
 #vl.m-en .zh{display:none}#vl.m-zh .en{display:none}#vl.m-zh .s.nozh .en{display:block}
 #vl.fs-mode{position:fixed!important;bottom:80px!important;left:0!important;right:0!important;z-index:9999!important;pointer-events:none;background:transparent}
 #vl.fs-mode .row{display:none}#vl.fs-mode .row.now{display:block;background:rgba(0,0,0,0.6);border-radius:10px;padding:10px 20px;width:fit-content;margin:0 auto}
 #vl.fs-mode .row.now .s{opacity:1}#vl.fs-mode .row.now .en{color:#fff;font-size:22px;text-shadow:0 1px 3px #000}
 #vl.fs-mode .row.now .zh{color:#ddd;font-size:18px;text-shadow:0 1px 3px #000}
-#ctl{padding:8px 18px 6px;background:var(--glass);border-top:.5px solid var(--bd);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+#ctl{padding:12px 20px 8px;background:#0f0f0f;border-top:1px solid #222}
 .prog{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:13px}.prog input{flex:1;accent-color:var(--acc)}
-.cbtns{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
+.cbtns{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
 .cb{min-width:52px;height:46px;border-radius:999px;font-size:15px;color:var(--fg);display:inline-flex;align-items:center;justify-content:center}
 .cb.play{width:64px;height:64px;background:var(--fg);color:#101012}
-.cx{display:flex;gap:8px;justify-content:center;padding:2px 0 4px;flex-wrap:wrap}.cb.sm{height:34px;min-width:0;font-size:13px;padding:0 14px;background:rgba(255,255,255,.08)}
+.cx{display:flex;gap:12px;justify-content:center;padding:8px 0 4px;flex-wrap:wrap}.cb.sm{height:36px;min-width:0;font-size:13px;padding:0 16px;background:#1f1f1f;border-radius:18px}
 #vid.pm #ytwrap.hide,#vid.pm .vv.hide{display:none}.sys{text-align:center;color:var(--mut);font-size:13px;margin:16px 0 6px}
 .tgrid{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.hide{display:none}
 </style>
@@ -123,16 +129,16 @@ textarea{background:var(--card);border:.5px solid var(--bd);border-radius:21px}t
 </div>
 <div class="ov hide" id="vid">
   <header><button class="ib" id="bVBack" aria-label="返回">←</button><b>视频字幕</b><span class="ib"></span></header>
-  <video id="vp" class="vv" controls playsinline></video>
+  <video id="vp" class="vv hide" controls playsinline></video>
   <div id="ytwrap" class="hide"><div id="ytp"></div></div>
   <div class="vb">
-    <button class="tab" id="bHis">📚 已学视频</button>
+    <button class="tab" id="bHis">📚 语料库</button>
     <label class="tab">📁 本地视频<input type="file" id="vf" accept="video/*,.mp4,.mkv,.webm,.mov,.m4v,.avi" hidden></label>
     <label class="tab">📄 导入字幕<input type="file" id="sf" accept=".srt,.vtt,.ass,.ssa,.lrc,.sbv,.txt" hidden></label>
     <button class="tab" id="ytBtn">🏠 首页</button>
   </div>
   <div class="yrow" id="yrow"><input id="yurl" class="sel" placeholder="搜索 YouTube，或粘贴视频链接…"><button class="tab on" id="ygo">搜索</button></div>
-  <div class="vst" id="vst">点一个 YouTube 视频开始看，字幕会自动出现并翻译；也可以点“本地视频”上传自己的视频。</div>
+  <div class="vst" id="vst"></div>
   <div id="vl"></div>
   <div id="ctl" class="hide">
     <div class="prog"><span id="tcur">0:00</span><input type="range" id="seek" min="0" max="1000" value="0"><span id="tdur">0:00</span></div>
@@ -202,7 +208,19 @@ function resetRate(){ri=0;pRate(1);$("cSpd").textContent="1.0x"}
 function fmt2(t){t=Math.max(0,Math.floor(t||0));var h=Math.floor(t/3600),m=Math.floor(t%3600/60),sec=t%60;return (h?h+":"+("0"+m).slice(-2):m)+":"+("0"+sec).slice(-2)}
 function updCtl(){if(src==="home")return;var st=pState();$("tcur").textContent=fmt2(st.t);$("tdur").textContent=fmt2(st.d);if(!seeking&&st.d)$("seek").value=Math.round(st.t/st.d*1000);$("cPlay").innerHTML=st.p?ICON.pause:ICON.play}
 function curIdx(ct){var i,idx=-1;for(i=0;i<vsubs.length;i++){if(vsubs[i].t<=ct+0.15)idx=i;else break}return idx}
-function cueNav(dir){if(!vsubs.length)return;var st=pState(),idx=curIdx(st.t),j;if(dir>0)j=Math.min(vsubs.length-1,idx+1);else j=(idx>=0&&st.t-vsubs[idx].t>1.5)?idx:Math.max(0,idx-1);pSeek(vsubs[j].t);if(!st.p)pToggle();nowI=-1;setTimeout(function(){ syncSubs(vsubs[j].t + 0.1); }, 150)}
+function cueNav(dir){
+  if(!vsubs.length)return;
+  var st=pState(),idx=curIdx(st.t),j;
+  if(dir>0)j=Math.min(vsubs.length-1,idx+1);
+  else j=(idx>=0&&st.t-vsubs[idx].t>1.5)?idx:Math.max(0,idx-1);
+  var target=vsubs[j].t;
+  pSeek(target);
+  if(!st.p)pToggle();
+  nowI=j;
+  var rows=$("vl").children;
+  for(var k=0;k<rows.length;k++)rows[k].classList.toggle("now",k===j);
+  if(rows[j])rows[j].scrollIntoView({block:"center",behavior:"smooth"});
+}
 $("cPlay").onclick=pToggle;$("cPrev").onclick=function(){cueNav(-1)};$("cNext").onclick=function(){cueNav(1)};$("cSpd").onclick=function(){ri=(ri+1)%rates.length;pRate(rates[ri]);this.textContent=(rates[ri]===1?"1.0":rates[ri])+"x"};
 $("seek").oninput=function(){seeking=true;$("tcur").textContent=fmt2(this.value/1000*pState().d)};$("seek").onchange=function(){pSeek(this.value/1000*pState().d);seeking=false};$("cImp").onclick=function(){$("sf").click()};
 function applyMode(){var l=$("vl");l.classList.remove("m-en","m-zh");if(subMode==="en")l.classList.add("m-en");else if(subMode==="zh")l.classList.add("m-zh");$("cMode").textContent={both:"中英",en:"英",zh:"中"}[subMode]}
@@ -291,7 +309,7 @@ async function ASR1(blob,off){var S=ASR_SVC[asrCfg.svc],fd=new FormData();fd.app
 var ASRB=false;
 async function ASRGO(bg){
   var b=$("asr");if(ASRB)return;if(!vFile)return vs("请先选视频");
-  if(!asrCfg.key){ if(bg){ $("vp").classList.remove("hide"); setVideo(vFile,0); vs("未配置 ASR Key，请长按“🎙 语音识别”配置"); return; } asrCfg.key=prompt("Groq/OpenAI API Key")||"";ASRS();if(!asrCfg.key)return; }
+  if(!asrCfg.key){ if(bg){ vs("未配置 ASR Key，请长按“🎙 语音识别”配置"); return; } asrCfg.key=prompt("Groq/OpenAI API Key")||"";ASRS();if(!asrCfg.key)return; }
   ASRB=true;b.textContent="⏳…";
   try{
     if (vFile.size > 80 * 1024 * 1024) { if (!confirm("视频超过80MB，直接提取音频可能会卡死闪退。是否仍要继续？")) throw {detail: "已取消大视频处理"}; }
@@ -309,16 +327,43 @@ async function ASRGO(bg){
       vs("识别完成，正在翻译…");
       try { var B = 20; for (var i = 0; i < vsubs.length; i += B) { var chunk = vsubs.slice(i, i + B).filter(function(c){return !c.zh}); if (!chunk.length) continue; var tr = await sample.json("把下面的英文字幕逐条翻译成自然的中文口语。只返回 JSON 数组，每条一个对象：{\"i\":编号,\"zh\":\"译文\"}。\n" + JSON.stringify(chunk.map(function(c,k){return {i:k,en:c.en}}))); (Array.isArray(tr) ? tr : []).forEach(function(o){ var c = chunk[o && o.i]; if (c && o.zh) c.zh = String(o.zh); }); renderV(); } } catch(e){}
     }
-    try { var cKey = "vcache_" + vFile.name + "_" + vFile.size; localStorage.setItem(cKey, JSON.stringify(vsubs)); var vLib = JSON.parse(localStorage.getItem("vidLib") || "[]"); vLib = vLib.filter(function(x){ return x.key !== cKey; }); vLib.unshift({ name: vFile.name, size: vFile.size, key: cKey, count: vsubs.length }); localStorage.setItem("vidLib", JSON.stringify(vLib)); } catch(e) {}
-    vs("语音识别与翻译完成！");
-  }catch(e){ vs("出错："+(e.detail||"重试")); }finally{ ASRB=false;b.textContent="🎙 语音识别"; if(bg){ $("vp").classList.remove("hide"); setVideo(vFile,0); toast("🎉 后台字幕识别完成！",3000); } }
+    try {
+      var cKey = "vcache_" + vFile.name + "_" + vFile.size;
+      localStorage.setItem(cKey, JSON.stringify(vsubs));
+      var vLib = JSON.parse(localStorage.getItem("vidLib") || "[]");
+      vLib = vLib.filter(function(x){ return x.key !== cKey; });
+      vLib.unshift({ name: vFile.name, size: vFile.size, key: cKey, count: vsubs.length, date: new Date().toLocaleDateString() });
+      localStorage.setItem("vidLib", JSON.stringify(vLib));
+    } catch(e) {}
+    vs("语音识别与翻译完成！已存入语料库。");
+  }catch(e){ vs("出错："+(e.detail||"重试")); }finally{ ASRB=false;b.textContent="🎙 语音识别"; if(bg){ $("vp").classList.add("hide"); renderHis(); toast("🎉 后台语音识别完成，已存入语料库！",3000); } }
 }
 $("asr").onclick=function(){ ASRGO(false); };
 $("asr").oncontextmenu=function(e){e.preventDefault();var s=prompt("服务商（groq/openai）",asrCfg.svc);if(s==="groq"||s==="openai"){asrCfg.svc=s;ASRS()}var k=prompt("API Key",asrCfg.key);if(k!=null){asrCfg.key=k.trim();ASRS()}var m=prompt("模型（留空=默认）",asrCfg.model);if(m!=null){asrCfg.model=m.trim();ASRS()}toast("已保存");return false};
 
-$("bHis").onclick=function(){var vLib = JSON.parse(localStorage.getItem("vidLib") || "[]");if(!vLib.length){ toast("还没有翻译过任何本地视频"); return; }var html = '<b>已缓存的视频字幕</b><div style="margin-top:10px;max-height:50vh;overflow-y:auto">';vLib.forEach(function(v){html += '<div class="mrow" style="padding:10px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">';html += '<div style="flex:1;min-width:0;margin-right:10px"><div style="font-size:15px;font-weight:600;word-break:break-all">'+esc(v.name)+'</div><div class="zt" style="font-size:12px">'+v.count+' 句</div></div>';html += '<button class="tab on" onclick="loadHis(\''+v.key+'\')">学习</button>';html += '<button class="tab" style="margin-left:6px;color:#ff453a;border-color:#ff453a" onclick="delHis(\''+v.key+'\')">删除</button>';html += '</div>';});html += '</div>';$("sheet").innerHTML=html;$("mask").classList.remove("hide");};
-window.loadHis=function(key){$("mask").classList.add("hide");var cached=null; try{ cached=JSON.parse(localStorage.getItem(key)||"null"); }catch(e){}if(!cached){ toast("缓存已丢失"); return; }setSrc("local"); vsubs=cached; renderV();vs("已加载字幕（共 "+vsubs.length+" 句）。要看视频，请点“📁 本地视频”重新选原文件（同名会自动联动，不花 Key）。");};
-window.delHis=function(key){try{localStorage.removeItem(key);var vLib=JSON.parse(localStorage.getItem("vidLib")||"[]");vLib=vLib.filter(function(x){return x.key!==key;});localStorage.setItem("vidLib",JSON.stringify(vLib));$("bHis").click();}catch(e){}};
+/* 语料库列表渲染 */
+function renderHis(){
+  var vLib = JSON.parse(localStorage.getItem("vidLib") || "[]");
+  $("vl").innerHTML = vLib.length ? vLib.map(function(v){
+    return '<div class="vc" onclick="loadHis(\''+v.key+'\')"><div class="cover">🎬</div><div class="vt"><b>'+esc(v.name)+'</b><span>'+v.count+' 句 · '+v.date+'</span></div></div>';
+  }).join("") : '<div class="empty">语料库还是空的。<br>点上方“📁 本地视频”上传并等待后台识别。</div>';
+}
+$("bHis").onclick=function(){ setSrc("home"); renderHis(); };
+window.loadHis=function(key){
+  var cached=null; try{ cached=JSON.parse(localStorage.getItem(key)||"null"); }catch(e){}
+  if(!cached){ toast("缓存丢失"); return; }
+  vsubs=cached; setSrc("local"); $("ctl").classList.remove("hide"); $("vl").innerHTML=""; renderV();
+  var v=$("vp"); if(vFile && ("vcache_"+vFile.name+"_"+vFile.size)===key){ v.classList.remove("hide"); setVideo(vFile, 0); } else { v.classList.add("hide"); vs("未加载原视频文件，仅显示文本。要播放请点“📁 本地视频”选同名文件。"); }
+};
+window.delHis=function(key){
+  try{
+    localStorage.removeItem(key);
+    var vLib=JSON.parse(localStorage.getItem("vidLib")||"[]");
+    vLib=vLib.filter(function(x){return x.key!==key;});
+    localStorage.setItem("vidLib",JSON.stringify(vLib));
+    renderHis();
+  }catch(e){}
+};
 
 $("bSet").onclick=function(){
   pv();var o=voices.map(function(v){return '<option value="'+esc(v.name)+'"'+(voice&&v.name===voice.name?' selected':'')+'>'+esc(v.name)+'</option>'}).join("");var names={"0.7":"慢","0.85":"适中","1":"正常"};var asrModels=ASR_SVC[asrCfg.svc].map(function(m){return '<option value="'+esc(m[1])+'"'+(asrCfg.model===m[1]?' selected':'')+'>'+esc(m[1])+'</option>'}).join("");
@@ -351,7 +396,28 @@ $("bVid").onclick=function(){$("vid").classList.remove("hide");if(src==="home"&&
 $("bVBack").onclick=function(){if(src!=="home"){stopPlayback();setSrc("home");renderFeed(lastFeed);vs("点一个视频开始看；也可以搜索，或粘贴链接。");if(!lastFeed.length)loadFeed();return}scanning=false;$("vid").classList.add("hide")};
 var vFile=null,vTry=0,autoPending=false,VT=["","video/mp4","video/webm"];
 function setVideo(f,i){if(vurl)URL.revokeObjectURL(vurl);vTry=i;vurl=URL.createObjectURL(i===0?f:new Blob([f],{type:VT[i]}));$("vp").src=vurl}
-$("vf").onchange=function(){var f=this.files[0];this.value="";if(!f)return;clearInterval(ytTimer);ytId="";try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}setSrc("local");resetRate();vFile=f;var cacheKey = "vcache_" + f.name + "_" + f.size;var cached = null;try { cached = JSON.parse(localStorage.getItem(cacheKey) || "null"); } catch(e) {}if (cached && cached.length) {vsubs = cached;renderV();setVideo(f, 0);vs("已加载缓存的字幕（共 " + vsubs.length + " 句），无需重新消耗 Key。");} else {vsubs = []; renderV();if(vurl) URL.revokeObjectURL(vurl);vurl = URL.createObjectURL(f);$("vp").classList.add("hide");if (asrCfg.key) {vs("正在后台语音识别，请稍候…（可切到其他页，完成后会弹窗提示）");ASRGO(true); } else if (cfg.key) {vs("正在后台画面字幕识别，请稍候…（完成后会弹窗提示）");runScan(true); } else {$("vp").classList.remove("hide");setVideo(f, 0);vs("视频已加载。请先配置 API Key（右上角 ⚙️），系统才能自动生成字幕。");}}};
+$("vf").onchange=function(){
+  var f=this.files[0];this.value="";if(!f)return;
+  clearInterval(ytTimer);ytId="";try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}setSrc("local");resetRate();vFile=f;
+  var cacheKey = "vcache_" + f.name + "_" + f.size;
+  var cached = null;try { cached = JSON.parse(localStorage.getItem(cacheKey) || "null"); } catch(e) {}
+  if (cached && cached.length) {
+    vsubs = cached;renderV();setVideo(f, 0);$("vp").classList.remove("hide");$("ctl").classList.remove("hide");vs("已加载缓存的字幕（共 " + vsubs.length + " 句），无需重新消耗 Key。");
+  } else {
+    vsubs = [];renderV();if(vurl) URL.revokeObjectURL(vurl);vurl = URL.createObjectURL(f);
+    $("vp").classList.add("hide");$("ctl").classList.add("hide");
+    setSrc("home"); // 不跳转
+    if (asrCfg.key) {
+      toast("已加入后台识别，请稍候…", 3000);
+      ASRGO(true); 
+    } else if (cfg.key) {
+      toast("已加入后台画面识别，请稍候…", 3000);
+      runScan(true); 
+    } else {
+      toast("视频已加载，请先配置 API Key 才能识别。", 3000);
+    }
+  }
+};
 $("vp").onloadedmetadata=function(){if(!autoPending)return;autoPending=false;if(cfg.key){vs("AI 开始识别画面字幕…（也可点“🎙 语音识别”）");setTimeout(function(){runScan(false)},300)}else vs("视频已加载。可以在设置里填 AI Key（画面字幕）或 ASR Key（语音识别）。")};
 $("vp").onerror=function(){if(!vFile)return;if(vTry<VT.length-1){setVideo(vFile,vTry+1);return}autoPending=false;vs("这个视频手机解码不了。建议转成 mp4（H.264）再导入；也可以只导入字幕文件。")};
 var CJK=/[\u4e00-\u9fff]/;function ts(x){return x.trim().replace(",",".").split(":").map(parseFloat).reduce(function(a,p){return a*60+p},0)}
@@ -378,7 +444,7 @@ async function runScan(bg){
       scanPos+=B*step;
     }
     if(id===runId)vs((vsubs.length?"识别完成，共 "+vsubs.length+" 句。":"没识别到字幕。")+(skipped?"有 "+skipped+" 段被跳过。":""));
-  }catch(e){if(id===runId)vs("识别中断："+((e&&e.detail)||"请再试一次")+"。")}finally{sv.remove();if(id===runId)window.retryHook=null;if(bg){$("vp").classList.remove("hide");setVideo(vFile,0);toast("🎉 画面字幕识别完成！",3000);}}
+  }catch(e){if(id===runId)vs("识别中断："+((e&&e.detail)||"请再试一次")+"。")}finally{sv.remove();if(id===runId)window.retryHook=null;if(bg){$("vp").classList.add("hide");$("ctl").classList.add("hide");setSrc("home");renderHis();toast("🎉 画面字幕识别完成，已存入语料库！",3000);}}
   if(id===runId){scanning=false;btn.textContent=scanPos>=sv.duration?"🔍 重新识别":"🔍 继续识别"}
 }
 $("scan").onclick=function(){ runScan(false); };
