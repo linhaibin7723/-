@@ -166,7 +166,7 @@ function ld(k){try{return JSON.parse(localStorage.getItem(k)||"[]")}catch(e){ret
 function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 var msgs=ld("msgs"),favs=ld("favs"),hist=ld("hist"),sample=null,busy=false;
 
-/* 拟人化朗读：多语气预设 */
+/* 拟人化朗读 */
 var TONES={
   normal: {name:"正常", rate:0.9, pitch:1.0, pause:400},
   gentle: {name:"温柔", rate:0.85, pitch:1.05, pause:450},
@@ -198,7 +198,6 @@ function say(t,done){
 function stopLoop(){looping=false;spk++;var T=TTSN();try{if(T)T.stop()}catch(e){};try{speechSynthesis.cancel()}catch(e){};$("loop").textContent="🔁 循环播放"}
 function isFav(en){return favs.some(function(f){return f.en===en})}
 
-/* 渲染 */
 function S(en,zh,mid,o){
   o=o||{};return '<div class="row"><div class="a1">'+(isFav(en)?'☆ 取消收藏':'★ 收藏')+'</div><div class="a2">'+(mid?'<button class="tb">💬<small>溯源</small></button>':'')+(o.del?'<button class="dl">🗑<small>删除</small></button>':'')+'</div><div class="s'+(zh?'':' nozh')+'" data-en="'+esc(en)+'" data-zh="'+esc(zh||"")+'" data-mid="'+esc(mid||"")+'"><div class="tx"><div class="en">'+wordsHtml(en)+'</div>'+(zh?'<div class="zh">'+esc(zh)+'</div>':'')+(o.extra||'')+'</div><span class="st">'+(isFav(en)?'★':'')+'</span></div></div>';
 }
@@ -230,17 +229,29 @@ function fmt2(t){t=Math.max(0,Math.floor(t||0));var h=Math.floor(t/3600),m=Math.
 function updCtl(){if(src==="home")return;var st=pState();$("tcur").textContent=fmt2(st.t);$("tdur").textContent=fmt2(st.d);if(!seeking&&st.d)$("seek").value=Math.round(st.t/st.d*1000);$("cPlay").innerHTML=st.p?ICON.pause:ICON.play}
 function curIdx(ct){var i,idx=-1;for(i=0;i<vsubs.length;i++){if(vsubs[i].t<=ct+0.15)idx=i;else break}return idx}
 function cueNav(dir){
-  if(!vsubs.length)return;
-  var st=pState(),idx=curIdx(st.t),j;
-  if(dir>0)j=Math.min(vsubs.length-1,idx+1);
-  else j=(idx>=0&&st.t-vsubs[idx].t>1.5)?idx:Math.max(0,idx-1);
-  var target=vsubs[j].t;
-  pSeek(target);
-  if(!st.p)pToggle();
-  nowI=j;
-  var rows=$("vl").children;
-  for(var k=0;k<rows.length;k++)rows[k].classList.toggle("now",k===j);
-  if(rows[j])rows[j].scrollIntoView({block:"center",behavior:"smooth"});
+  if(!vsubs.length) return;
+  var st = pState(), idx = curIdx(st.t), j;
+  if(dir > 0) j = Math.min(vsubs.length - 1, idx + 1);
+  else j = (idx >= 0 && st.t - vsubs[idx].t > 1.5) ? idx : Math.max(0, idx - 1);
+  var target = parseFloat(vsubs[j].t) || 0;
+  
+  if(ytMode && yt && yt.seekTo) {
+    yt.seekTo(target, true);
+    if(!st.p) yt.playVideo();
+  } else {
+    var v = $("vp");
+    if(v && v.src) {
+      v.currentTime = target;
+      if(!st.p) v.play();
+    } else {
+      toast("无视频播放，仅显示文本");
+    }
+  }
+  
+  nowI = j;
+  var rows = $("vl").children;
+  for(var k = 0; k < rows.length; k++) rows[k].classList.toggle("now", k === j);
+  if(rows[j]) rows[j].scrollIntoView({block:"center", behavior:"smooth"});
 }
 $("cPlay").onclick=pToggle;$("cPrev").onclick=function(){cueNav(-1)};$("cNext").onclick=function(){cueNav(1)};$("cSpd").onclick=function(){ri=(ri+1)%rates.length;pRate(rates[ri]);this.textContent=(rates[ri]===1?"1.0":rates[ri])+"x"};
 $("seek").oninput=function(){seeking=true;$("tcur").textContent=fmt2(this.value/1000*pState().d)};$("seek").onchange=function(){pSeek(this.value/1000*pState().d);seeking=false};$("cImp").onclick=function(){$("sf").click()};
@@ -321,6 +332,19 @@ $("cbox").addEventListener("touchmove",function(e){if(!cs)return;var t=e.touches
 function cEnd(){if(!cs)return;var c=cs,b=$("cbox");cs=null;if(!c.on)return;b.dataset.swiped=Date.now();if(Math.abs(c.dx)>90){b.style.transition="transform .18s,opacity .18s";b.style.transform="translateX("+(c.dx>0?500:-500)+"px)";b.style.opacity="0";setTimeout(function(){if(c.dx<0&&cur)deck.push(cur);b.style.transition="none";b.style.transform="";b.style.opacity="";draw()},180)}else{b.style.transition="transform .2s";b.style.transform=""}}
 $("cbox").addEventListener("touchend",cEnd);$("cbox").addEventListener("touchcancel",cEnd);
 
+/* 保存语料库核心逻辑 */
+function saveToLib() {
+  if(!vFile || !vsubs.length) return;
+  var cKey = "vcache_" + vFile.name + "_" + vFile.size;
+  try {
+    localStorage.setItem(cKey, JSON.stringify(vsubs));
+    var vLib = JSON.parse(localStorage.getItem("vidLib") || "[]");
+    vLib = vLib.filter(function(x){ return x.key !== cKey; });
+    vLib.unshift({ name: vFile.name, size: vFile.size, key: cKey, count: vsubs.length, date: new Date().toLocaleDateString() });
+    localStorage.setItem("vidLib", JSON.stringify(vLib));
+  } catch(e) {}
+}
+
 /* ASR */
 var ASR_SVC={groq:["https://api.groq.com/openai/v1/audio/transcriptions","whisper-large-v3"],openai:["https://api.openai.com/v1/audio/transcriptions","whisper-1"]};
 var asrCfg={svc:"groq",key:"",model:""};try{asrCfg=Object.assign(asrCfg,JSON.parse(localStorage.getItem("asr")||"{}"));}catch(e){}
@@ -348,21 +372,12 @@ async function ASRGO(bg){
       vs("识别完成，正在翻译…");
       try { var B = 20; for (var i = 0; i < vsubs.length; i += B) { var chunk = vsubs.slice(i, i + B).filter(function(c){return !c.zh}); if (!chunk.length) continue; var tr = await sample.json("把下面的英文字幕逐条翻译成自然的中文口语。只返回 JSON 数组，每条一个对象：{\"i\":编号,\"zh\":\"译文\"}。\n" + JSON.stringify(chunk.map(function(c,k){return {i:k,en:c.en}}))); (Array.isArray(tr) ? tr : []).forEach(function(o){ var c = chunk[o && o.i]; if (c && o.zh) c.zh = String(o.zh); }); renderV(); } } catch(e){}
     }
-    try {
-      var cKey = "vcache_" + vFile.name + "_" + vFile.size;
-      localStorage.setItem(cKey, JSON.stringify(vsubs));
-      var vLib = JSON.parse(localStorage.getItem("vidLib") || "[]");
-      vLib = vLib.filter(function(x){ return x.key !== cKey; });
-      vLib.unshift({ name: vFile.name, size: vFile.size, key: cKey, count: vsubs.length, date: new Date().toLocaleDateString() });
-      localStorage.setItem("vidLib", JSON.stringify(vLib));
-    } catch(e) {}
     vs("语音识别与翻译完成！");
-  }catch(e){ vs("出错："+(e.detail||"重试")); }finally{ ASRB=false;b.textContent="🎙 语音识别"; if(bg){ toast("🎉 语音识别完成，已存入语料库！",3000); } }
+  }catch(e){ vs("出错："+(e.detail||"重试")); }finally{ ASRB=false;b.textContent="🎙 语音识别"; saveToLib(); if(bg){ toast("🎉 语音识别完成，已存入语料库！",3000); } }
 }
 $("asr").onclick=function(){ ASRGO(false); };
 $("asr").oncontextmenu=function(e){e.preventDefault();var s=prompt("服务商（groq/openai）",asrCfg.svc);if(s==="groq"||s==="openai"){asrCfg.svc=s;ASRS()}var k=prompt("API Key",asrCfg.key);if(k!=null){asrCfg.key=k.trim();ASRS()}var m=prompt("模型（留空=默认）",asrCfg.model);if(m!=null){asrCfg.model=m.trim();ASRS()}toast("已保存");return false};
 
-/* 语料库列表渲染 */
 function renderHis(){
   var vLib = JSON.parse(localStorage.getItem("vidLib") || "[]");
   var ytLib = JSON.parse(localStorage.getItem("ytLib") || "[]");
@@ -371,7 +386,7 @@ function renderHis(){
   if (ytLib.length) {
     html += '<div class="zt" style="padding:10px 0">收藏的 YouTube</div>';
     html += ytLib.map(function(v){
-      return '<div class="vc" onclick="ytLoad(\''+v.id+'\',\''+esc(v.title)+'\')"><img src="https://i.ytimg.com/vi/'+v.id+'/mqdefault.jpg"><div class="vt"><b>'+esc(v.title)+'</b><span>YouTube · '+v.date+'</span></div></div>';
+      return '<div class="vc" onclick="ytLoad(\''+v.id+'\', \''+esc(v.title).replace(/'/g, "\\'")+'\')"><img src="https://i.ytimg.com/vi/'+v.id+'/mqdefault.jpg"><div class="vt"><b>'+esc(v.title)+'</b><span>YouTube · '+v.date+'</span></div></div>';
     }).join("");
   }
   
@@ -496,7 +511,7 @@ var CJK=/[\u4e00-\u9fff]/;function ts(x){return x.trim().replace(",",".").split(
 function mkCue(t,lines){var en=[],zh=[];lines.forEach(function(l){l=String(l).replace(/<[^>]+>/g,"").replace(/\{[^}]*\}/g,"").trim();if(l)(CJK.test(l)?zh:en).push(l)});return en.length&&!isNaN(t)?{t:t,en:en.join(" "),zh:zh.join(" ")}:null}
 function parseSubs(text){text=text.replace(/^\uFEFF/,"").replace(/\r/g,"");var out=[],c,i;if(/^Dialogue:/m.test(text)){text.split("\n").forEach(function(ln){var m=ln.match(/^Dialogue:\s*[^,]*,([^,]*),(?:[^,]*,){7}(.*)$/);if(m&&(c=mkCue(ts(m[1]),m[2].split(/\\[Nn]/))))out.push(c)});return out}if(!/-->/.test(text)&&/^\s*\[\d+:\d+/m.test(text)){var by={},keys=[];text.split("\n").forEach(function(ln){var m=ln.match(/^\s*((?:\[\d+:\d+(?:[.:]\d+)?\])+)(.*)$/);if(!m)return;m[1].replace(/\[(\d+):(\d+)(?:[.:](\d+))?\]/g,function(_,mi,se,fr){var t=+mi*60+ +se+(fr?+fr/(fr.length>=3?1000:100):0),k=t.toFixed(2);if(!by[k]){by[k]={t:t,l:[]};keys.push(k)}by[k].l.push(m[2])})});keys.forEach(function(k){if(c=mkCue(by[k].t,by[k].l))out.push(c)});return out}text.split(/\n\n+/).forEach(function(blk){var L=blk.split("\n"),k=-1;for(i=0;i<L.length;i++){if(L[i].indexOf("-->")>-1||/^\d+:\d\d:\d\d\.\d+,\d+:\d\d:\d\d\.\d+\s*$/.test(L[i])){k=i;break}}if(k<0)return;var st=L[k].indexOf("-->")>-1?L[k].split("-->")[0]:L[k].split(",")[0];if(c=mkCue(ts(st),L.slice(k+1)))out.push(c)});return out}
 function decodeBuf(buf){var u=new Uint8Array(buf);try{if(u[0]===0xFF&&u[1]===0xFE)return new TextDecoder("utf-16le").decode(buf);if(u[0]===0xFE&&u[1]===0xFF)return new TextDecoder("utf-16be").decode(buf)}catch(e){}try{return new TextDecoder("utf-8",{fatal:true}).decode(buf)}catch(e){}try{return new TextDecoder("gbk").decode(buf)}catch(e){}return new TextDecoder("utf-8").decode(buf)}
-$("sf").onchange=function(){var f=this.files[0];this.value="";if(!f)return;f.arrayBuffer().then(function(buf){var out=parseSubs(decodeBuf(buf));runId++;scanning=false;scanPos=1e9;$("scan").textContent="🤖 画面字幕";if(src==="home")setSrc("local");addSubs(out);vs(out.length?"已导入 "+out.length+" 句字幕（"+f.name+"）。":"没读到英文字幕。")}).catch(function(){vs("读取字幕文件失败。")})};
+$("sf").onchange=function(){var f=this.files[0];this.value="";if(!f)return;f.arrayBuffer().then(function(buf){var out=parseSubs(decodeBuf(buf));runId++;scanning=false;scanPos=1e9;$("scan").textContent="🤖 画面字幕";if(src==="home")setSrc("local");addSubs(out);vs(out.length?"已导入 "+out.length+" 句字幕（"+f.name+"）。":"没读到英文字幕。"); saveToLib(); }).catch(function(){vs("读取字幕文件失败。")})};
 function frame(v,t){return new Promise(function(res){var tm=setTimeout(function(){res(null)},6000);v.onseeked=function(){v.onseeked=null;clearTimeout(tm);try{if(!v.videoWidth||!v.videoHeight){res(null);return}var sh=v.videoHeight*0.45,cw=Math.min(v.videoWidth,1024),ch=Math.round(cw*sh/v.videoWidth);var c=document.createElement("canvas");c.width=cw;c.height=ch;c.getContext("2d").drawImage(v,0,v.videoHeight-sh,v.videoWidth,sh,0,0,cw,ch);c.toBlob(function(b){res(b)},"image/jpeg",.75)}catch(e){res(null)}};v.currentTime=t+0.05})}
 var scanPos=0,runId=0;function fmt(t){t=Math.floor(t);return Math.floor(t/60)+":"+("0"+t%60).slice(-2)}
 function loadVid(){return new Promise(function(res){var sv=document.createElement("video"),done=false;sv.muted=true;sv.preload="auto";sv.setAttribute("playsinline","");sv.style.cssText="position:fixed;width:2px;height:2px;opacity:0;pointer-events:none;left:0;top:0";function fin(ok){if(done)return;done=true;if(!ok)sv.remove();res(ok?sv:null)}sv.onloadedmetadata=function(){fin(true)};sv.onerror=function(){fin(false)};setTimeout(function(){fin(false)},8000);document.body.appendChild(sv);sv.src=vurl})}
@@ -516,7 +531,7 @@ async function runScan(bg){
       scanPos+=B*step;
     }
     if(id===runId)vs((vsubs.length?"识别完成，共 "+vsubs.length+" 句。":"没识别到字幕。")+(skipped?"有 "+skipped+" 段被跳过。":""));
-  }catch(e){if(id===runId)vs("识别中断："+((e&&e.detail)||"请再试一次")+"。")}finally{sv.remove();if(id===runId)window.retryHook=null;if(bg){toast("🎉 画面字幕识别完成，已存入语料库！",3000);}}
+  }catch(e){if(id===runId)vs("识别中断："+((e&&e.detail)||"请再试一次")+"。")}finally{sv.remove();if(id===runId)window.retryHook=null; saveToLib(); if(bg){toast("🎉 画面字幕识别完成，已存入语料库！",3000);}}
   if(id===runId){scanning=false;btn.textContent=scanPos>=sv.duration?"🔍 重新识别":"🔍 继续识别"}
 }
 $("scan").onclick=function(){ runScan(false); };
@@ -622,7 +637,7 @@ function collectVideos(o,out,seen){if(!o||typeof o!=="object"||out.length>=40)re
 async function ytCall(ep,body){var r=await fetch("https://www.youtube.com/youtubei/v1/"+ep+"?prettyPrint=false",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(Object.assign({context:{client:{clientName:"WEB",clientVersion:"2.20250310.01.00",hl:"en",gl:"US"}}},body))});if(!r.ok)throw {detail:"HTTP "+r.status};return r.json()}
 var TOPICS=[["🎤 TED 演讲","TED talk"],["💬 日常对话","English conversation daily life"],["🎬 影视片段","movie clips English"],["📰 新闻","BBC Learning English"],["🎧 播客","English podcast"],["🐢 慢速英语","slow English listening"]];
 var lastFeed=[];
-function renderFeed(items){lastFeed=items;var chips='<div class="tcs">'+TOPICS.map(function(t){return '<button class="chip tc" data-q="'+esc(t[1])+'">'+esc(t[0])+'</button>'}).join("")+'</div>';$("vl").innerHTML=chips+items.filter(function(v){return v.t}).map(function(v){return '<div class="vc" data-id="'+esc(v.id)+'"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/'+esc(v.id)+'/mqdefault.jpg"><div class="vt"><b>'+esc(v.t)+'</b><span>'+esc(v.c)+(v.d?' · '+esc(v.d):'')+'</span></div></div>'}).join("")}
+function renderFeed(items){lastFeed=items;var chips='<div class="tcs">'+TOPICS.map(function(t){return '<button class="chip tc" data-q="'+esc(t[1])+'">'+esc(t[0])+'</button>'}).join("")+'</div>';$("vl").innerHTML=chips+items.filter(function(v){return v.t}).map(function(v){return '<div class="vc" onclick="ytLoad(\''+esc(v.id)+'\', \''+esc(v.t).replace(/'/g, "\\'")+'\')"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/'+esc(v.id)+'/mqdefault.jpg"><div class="vt"><b>'+esc(v.t)+'</b><span>'+esc(v.c)+(v.d?' · '+esc(v.d):'')+'</span></div></div>'}).join("")}
 async function ytSearch(q,fallback){stopPlayback();setSrc("home");vs("搜索中…");var out=[];try{var d=await ytCall("search",{query:q});collectVideos(d,out,{});renderFeed(out);if(out.length)vs(fallback?"YouTube 不给未登录的人推荐首页，所以放了几个英语学习分类，点一个就开始；也可以搜索或粘贴链接。":"搜索结果：点一个视频开始看。");else vs("没有搜到视频。换个关键词试试。")}catch(e){vs("搜索失败："+((e&&e.detail)||"请检查网络"))}return out.length}
 async function loadFeed(){setSrc("home");vs("正在加载 YouTube 首页…");renderFeed([]);try{var out=[];collectVideos(await ytCall("browse",{browseId:"FEwhat_to_watch"}),out,{});if(out.length){feedLoaded=true;renderFeed(out);vs("点一个视频开始看；也可以搜索，或粘贴链接。");return}}catch(e){}feedLoaded=(await ytSearch("TED talk",true))>0}
 function ytGo(){var q=$("yurl").value.trim();if(!q)return;var id=ytParse(q);if(id)ytLoad(id);else ytSearch(q)}
