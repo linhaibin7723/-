@@ -296,7 +296,6 @@ function stopLoop(){looping=false;spk++;var T=TTSN();try{if(T)T.stop()}catch(e){
 function isFav(en){return favs.some(function(f){return f.en===en})}
 
 /* 对话渲染 */
-var SUGG=["你吃了吗？","我有点累了","能再说一遍吗？","我马上就到"];
 function S(en,zh,mid,o){
   o=o||{};
   return '<div class="row"><div class="a1">'+(isFav(en)?'☆ 取消收藏':'★ 收藏')+'</div><div class="a2">'+
@@ -389,7 +388,7 @@ document.addEventListener("click",function(e){
   if(s.dataset.open==="1"){swReset(s,true);return}
   say(s.dataset.en);
 });
-/* ===== 播放控制：进度、上一句 / 下一句、倍速、字幕模式 ===== */
+/* ===== 播放控制 ===== */
 var ICON={
   play:'<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
   pause:'<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
@@ -462,7 +461,7 @@ document.addEventListener('fullscreenchange', function() {
   else { $("vl").classList.remove("fs-mode"); }
 });
 
-/* 溯源：回到收藏句子所在的原消息 */
+/* 溯源 */
 function toast(m,ms){var d=document.createElement("div");d.className="toast";d.textContent=m;document.body.appendChild(d);setTimeout(function(){d.remove()},ms||2200)}
 function trace(mid,en){
   if(!mid){toast("这句话没有保存来源");return}
@@ -493,10 +492,12 @@ document.addEventListener("click",function(e){
   }
 });
 
-/* ===== 离线词典 ===== */
+/* ===== 离线词典（安全兜底，不卡死） ===== */
 var dict={};try{dict=JSON.parse(localStorage.getItem("dict")||"{}")}catch(e){}
 var odict={};
-fetch("dict.json").then(r=>r.ok?r.json():{}).then(d=>{odict=d||{};}).catch(()=>{});
+setTimeout(function(){
+  fetch("dict.json").then(function(r){ if(r.ok) return r.json(); }).then(function(d){ odict = d || {}; }).catch(function(){});
+}, 2000);
 
 function wordsHtml(t){
   var out="",last=0,m,re=/[A-Za-z][A-Za-z'’\-]*/g;
@@ -544,7 +545,6 @@ function lookup(el,ctx){
     if(el.classList.contains("on"))showDict(w,r);
   }).catch(function(e){if(el.classList.contains("on"))box.textContent="查询失败："+((e&&e.detail)||"请再试一次")});
 }
-/* 点高亮文字 → 弹出卡片 */
 function popup(en,zh,mid,idx){
   var f=isFav(en);
   $("pop").innerHTML='<div><span class="hlb">'+wordsHtml(en)+'</span></div>'+(zh?'<div class="zt" style="margin-top:10px">'+esc(zh)+'</div>':'')+
@@ -842,7 +842,7 @@ function cEnd(){
 $("cbox").addEventListener("touchend",cEnd);
 $("cbox").addEventListener("touchcancel",cEnd);
 
-/* ===== 语音识别 (ASR) 配置 ===== */
+/* ===== 语音识别 (ASR) 防卡死版 ===== */
 var ASR_SVC={groq:["https://api.groq.com/openai/v1/audio/transcriptions","whisper-large-v3"],
 openai:["https://api.openai.com/v1/audio/transcriptions","whisper-1"]};
 var asrCfg={svc:"groq",key:"",model:""};
@@ -888,8 +888,20 @@ async function ASRGO(bg){
   }
   ASRB=true;b.textContent="⏳…";
   try{
+    if (vFile.size > 80 * 1024 * 1024) {
+      if (!confirm("视频较大（超过80MB），直接提取音频可能会卡死闪退。是否仍要继续？")) {
+        throw {detail: "已取消大视频处理"};
+      }
+    }
     vs("提取音频中…");
-    var ac=new AudioContext(),buf=await ac.decodeAudioData(await vFile.arrayBuffer());ac.close();
+    var ac=new AudioContext(), buf;
+    try {
+      buf = await ac.decodeAudioData(await vFile.arrayBuffer());
+    } catch(e) {
+      throw {detail: "视频太大导致内存不足，无法解码"};
+    }
+    ac.close();
+    
     var sr=16000,oc=new OfflineAudioContext(1,Math.ceil(buf.duration*sr),sr);
     var src=oc.createBufferSource();src.buffer=buf;src.connect(oc.destination);src.start(0);
     var r=await oc.startRendering(),d=r.getChannelData(0),tot=d.length,pos=0,cnt=0;
@@ -1081,7 +1093,12 @@ function addSubs(a){
 function renderV(){
   if(src==="home")return;
   nowI=-1;
-  $("vl").innerHTML=vsubs.map(function(c){
+  var displaySubs = vsubs;
+  if(displaySubs.length > 800) {
+    vs("为防止卡顿，当前只显示前800句字幕（数据已全部保存）");
+    displaySubs = displaySubs.slice(0, 800);
+  }
+  $("vl").innerHTML=displaySubs.map(function(c){
     var m=Math.floor(c.t/60),sec=Math.floor(c.t%60);
     return S(c.en,c.zh,"",{extra:'<button class="tm" data-t="'+c.t+'">▶ '+m+':'+(sec<10?'0':'')+sec+'</button>'});
   }).join("");
@@ -1096,6 +1113,7 @@ function syncSubs(ct){
   updCtl();
   var idx=-1,i;
   for(i=0;i<vsubs.length;i++){if(vsubs[i].t<=ct)idx=i;else break}
+  if(idx>=800) return; // 超过800不渲染高亮防卡死
   if(idx!==nowI){nowI=idx;var rows=$("vl").children;for(i=0;i<rows.length;i++)rows[i].classList.toggle("now",i===idx);
     if(idx>=0&&rows[idx]&&Date.now()-lastTouch>3000)rows[idx].scrollIntoView({block:"center",behavior:"smooth"})}
 }
@@ -1394,7 +1412,7 @@ async function testModels(){
   testing=false;var b2=$("amods");if(b2)b2.textContent="🔍 自动测试可用模型";
 }
 
-/* ===== YouTube：在 App 里看，字幕自动获取并翻译 ===== */
+/* ===== YouTube ===== */
 var ytMode=false,yt=null,ytReady=null,ytId="",ytTimer=null;
 function ytParse(u){
   u=String(u).trim();
@@ -1552,33 +1570,4 @@ function collectVideos(o,out,seen){
   var l=o.lockupViewModel;
   if(l&&l.contentId&&/VIDEO/.test(l.contentType||"")&&!seen[l.contentId]){
     var m=l.metadata&&l.metadata.lockupMetadataViewModel,ch="";
-    try{ch=m.metadata.contentMetadataViewModel.metadataRows[0].metadataParts[0].text.content}catch(e){}
-    seen[l.contentId]=1;
-    out.push({id:l.contentId,t:txt(m&&m.title),c:ch,d:""});
-    return;
-  }
-  for(var k in o)collectVideos(o[k],out,seen);
-}
-async function ytCall(ep,body){
-  var r=await fetch("https://www.youtube.com/youtubei/v1/"+ep+"?prettyPrint=false",{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify(Object.assign({context:{client:{clientName:"WEB",clientVersion:"2.20250310.01.00",hl:"en",gl:"US"}}},body))});
-  if(!r.ok)throw {detail:"HTTP "+r.status};
-  return r.json();
-}
-var TOPICS=[["🎤 TED 演讲","TED talk"],["💬 日常对话","English conversation daily life"],["🎬 影视片段","movie clips English"],["📰 新闻","BBC Learning English"],["🎧 播客","English podcast"],["🐢 慢速英语","slow English listening"]];
-var lastFeed=[];
-function renderFeed(items){
-  lastFeed=items;
-  var chips='<div class="tcs">'+TOPICS.map(function(t){return '<button class="chip tc" data-q="'+esc(t[1])+'">'+esc(t[0])+'</button>'}).join("")+'</div>';
-  $("vl").innerHTML=chips+items.filter(function(v){return v.t}).map(function(v){
-    return '<div class="vc" data-id="'+esc(v.id)+'"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/'+esc(v.id)+'/mqdefault.jpg"><div class="vt"><b>'+esc(v.t)+'</b><span>'+esc(v.c)+(v.d?' · '+esc(v.d):'')+'</span></div></div>';
-  }).join("");
-}
-async function ytSearch(q,fallback){
-  stopPlayback();setSrc("home");vs("搜索中…");
-  var out=[];
-  try{
-    var d=await ytCall("search",{query:q});
-    collectVideos(d,out,{});renderFeed(out);
-    if(out.length)vs(fallback?"YouTube 不给未登录的人推荐首页，所以放了几个英语学习分类，点一个就开始；也可以搜索或粘贴链接。":"搜索结果：点一个视频开始看。");
-    else vs("没有搜到视频。接口返回的内容："+Object.keys(d).slice(0,8).join("/")+"（"+
+    try{ch=m.metadata.contentMetadataViewModel.metadataRows[0].metadataParts[0].
