@@ -154,7 +154,7 @@ textarea{background:var(--card);border:.5px solid var(--bd);border-radius:21px}t
   <header><button class="ib" id="cBack" aria-label="返回">←</button><b>抽卡</b><span class="ib"></span></header>
   <div class="cwrap"><div class="cardbox" id="cbox"></div></div>
   <div class="chint">← 再来一次　·　会了 →</div>
-  <div class="lp"><button class="g" id="cSay">🔊 再听一次</button><button id="cNext">下一张 ➜</button></div>
+  <div class="lp"><button class="g" id="cSay">🔊 再听一次</button><button id="cDrawNext">下一张 ➜</button></div>
 </div>
 <div class="mask c hide" id="pmask"><div class="pop" id="pop"></div></div>
 <div class="mask hide" id="mask"><div class="sheet" id="sheet"></div></div>
@@ -229,23 +229,28 @@ function fmt2(t){t=Math.max(0,Math.floor(t||0));var h=Math.floor(t/3600),m=Math.
 function updCtl(){if(src==="home")return;var st=pState();$("tcur").textContent=fmt2(st.t);$("tdur").textContent=fmt2(st.d);if(!seeking&&st.d)$("seek").value=Math.round(st.t/st.d*1000);$("cPlay").innerHTML=st.p?ICON.pause:ICON.play}
 function curIdx(ct){var i,idx=-1;for(i=0;i<vsubs.length;i++){if(vsubs[i].t<=ct+0.15)idx=i;else break}return idx}
 function cueNav(dir){
-  if(!vsubs.length) return;
+  if(!vsubs.length){ toast("还没有字幕",1200); return; }
   var st = pState(), idx = curIdx(st.t), j;
   if(dir > 0) j = Math.min(vsubs.length - 1, idx + 1);
   else j = (idx >= 0 && st.t - vsubs[idx].t > 1.5) ? idx : Math.max(0, idx - 1);
+  if(j === idx && dir > 0 && idx >= vsubs.length - 1){ toast("已经是最后一句",1200); }
+  if(j === idx && dir < 0 && idx <= 0){ toast("已经是第一句",1200); }
   var target = parseFloat(vsubs[j].t) || 0;
   
   if(ytMode && yt && yt.seekTo) {
-    yt.seekTo(target, true);
-    if(!st.p) yt.playVideo();
+    try{
+      yt.seekTo(target, true);
+      if(!st.p) yt.playVideo();
+    }catch(e){ toast("跳转失败",1200); }
   } else {
     var v = $("vp");
     if(v && v.src) {
-      v.currentTime = target;
-      if(!st.p) v.play();
-    } else {
-      toast("无视频播放，仅显示文本");
+      try{
+        v.currentTime = target;
+        if(!st.p) v.play();
+      }catch(e){ toast("跳转失败",1200); }
     }
+    // 纯文本模式：只高亮+滚动，不弹 toast 干扰
   }
   
   nowI = j;
@@ -326,11 +331,86 @@ $("loop").onclick=function(){if(looping){stopLoop();return}var a=tabNow==="F"?fa
 var deck=[],di=0,cur=null,shown=false;function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
 function showCard(){$("cbox").innerHTML='<div class="cnt">'+di+' / '+deck.length+'</div><div class="en">'+esc(cur.en)+'</div>'+(shown?'<div class="zh">'+esc(cur.zh||"（没有中文）")+'</div>':'<div class="hint">点一下卡片查看中文</div>')}
 function draw(){if(!favs.length){cur=null;$("cbox").innerHTML='<div class="empty" style="margin:0">还没有收藏。<br>先收藏几句再来抽卡。</div>';return}if(di>=deck.length){deck=shuffle(favs);di=0;if(deck.length>1&&cur&&deck[0].en===cur.en)deck.push(deck.shift())}cur=deck[di++];shown=false;showCard();say(cur.en)}
-$("cbox").onclick=function(){if(!cur||shown||Date.now()-(+this.dataset.swiped||0)<400)return;shown=true;showCard()};$("cNext").onclick=draw;$("cSay").onclick=function(){if(cur)say(cur.en)};$("bCard").onclick=function(){stopLoop();deck=[];di=0;cur=null;$("card").classList.remove("hide");draw()};$("cBack").onclick=function(){stopLoop();$("card").classList.add("hide")};
+$("cbox").onclick=function(){if(!cur||shown||Date.now()-(+this.dataset.swiped||0)<400)return;shown=true;showCard()};$("cDrawNext").onclick=draw;$("cSay").onclick=function(){if(cur)say(cur.en)};$("bCard").onclick=function(){stopLoop();deck=[];di=0;cur=null;$("card").classList.remove("hide");draw()};$("cBack").onclick=function(){stopLoop();$("card").classList.add("hide")};
 var cs=null;$("cbox").addEventListener("touchstart",function(e){var t=e.touches[0];cs={x:t.clientX,y:t.clientY,dx:0,on:false}},{passive:true});
 $("cbox").addEventListener("touchmove",function(e){if(!cs)return;var t=e.touches[0],dx=t.clientX-cs.x,dy=t.clientY-cs.y;if(!cs.on){if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)*1.5)cs.on=true;else return}cs.dx=dx;this.style.transition="none";this.style.transform="translateX("+dx+"px) rotate("+dx/25+"deg)"},{passive:true});
 function cEnd(){if(!cs)return;var c=cs,b=$("cbox");cs=null;if(!c.on)return;b.dataset.swiped=Date.now();if(Math.abs(c.dx)>90){b.style.transition="transform .18s,opacity .18s";b.style.transform="translateX("+(c.dx>0?500:-500)+"px)";b.style.opacity="0";setTimeout(function(){if(c.dx<0&&cur)deck.push(cur);b.style.transition="none";b.style.transform="";b.style.opacity="";draw()},180)}else{b.style.transition="transform .2s";b.style.transform=""}}
 $("cbox").addEventListener("touchend",cEnd);$("cbox").addEventListener("touchcancel",cEnd);
+
+
+/* IndexedDB：把本地视频本体存起来，语料库点开可自动播放 */
+var IDB_NAME="kouyu_vid", IDB_STORE="videos", IDB_VER=1;
+function idbOpen(){
+  return new Promise(function(res,rej){
+    try{
+      var r=indexedDB.open(IDB_NAME, IDB_VER);
+      r.onupgradeneeded=function(){ var db=r.result; if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE); };
+      r.onsuccess=function(){ res(r.result); };
+      r.onerror=function(){ rej(r.error); };
+    }catch(e){ rej(e); }
+  });
+}
+function idbPut(key, blob, meta){
+  return idbOpen().then(function(db){
+    return new Promise(function(res,rej){
+      try{
+        var tx=db.transaction(IDB_STORE,"readwrite");
+        tx.objectStore(IDB_STORE).put({blob:blob, meta:meta||{}, ts:Date.now()}, key);
+        tx.oncomplete=function(){ res(true); };
+        tx.onerror=function(){ rej(tx.error); };
+      }catch(e){ rej(e); }
+    });
+  });
+}
+function idbGet(key){
+  return idbOpen().then(function(db){
+    return new Promise(function(res,rej){
+      try{
+        var tx=db.transaction(IDB_STORE,"readonly");
+        var q=tx.objectStore(IDB_STORE).get(key);
+        q.onsuccess=function(){ res(q.result||null); };
+        q.onerror=function(){ rej(q.error); };
+      }catch(e){ rej(e); }
+    });
+  });
+}
+function idbDel(key){
+  return idbOpen().then(function(db){
+    return new Promise(function(res){
+      try{
+        var tx=db.transaction(IDB_STORE,"readwrite");
+        tx.objectStore(IDB_STORE).delete(key);
+        tx.oncomplete=function(){ res(); };
+        tx.onerror=function(){ res(); };
+      }catch(e){ res(); }
+    });
+  });
+}
+async function saveVideoBlob(key, file){
+  if(!file) return false;
+  // 超过 120MB 不自动存，避免撑爆手机存储
+  if(file.size > 120*1024*1024){
+    console.warn("video too large for IDB", file.size);
+    return false;
+  }
+  try{
+    await idbPut(key, file, {name:file.name, size:file.size, type:file.type||"video/mp4"});
+    return true;
+  }catch(e){
+    console.warn("idb put fail", e);
+    // 空间不足时尝试清理旧条目后再写一次
+    try{
+      var db=await idbOpen();
+      var tx=db.transaction(IDB_STORE,"readwrite");
+      var store=tx.objectStore(IDB_STORE);
+      var all=await new Promise(function(res,rej){ var q=store.getAllKeys(); q.onsuccess=function(){res(q.result||[])}; q.onerror=function(){rej(q.error)}; });
+      for(var i=0;i<Math.min(3,all.length);i++) store.delete(all[i]);
+      await new Promise(function(res){ tx.oncomplete=res; tx.onerror=res; });
+      await idbPut(key, file, {name:file.name, size:file.size, type:file.type||"video/mp4"});
+      return true;
+    }catch(e2){ return false; }
+  }
+}
 
 /* 保存语料库核心逻辑 */
 function saveToLib() {
@@ -340,9 +420,19 @@ function saveToLib() {
     localStorage.setItem(cKey, JSON.stringify(vsubs));
     var vLib = JSON.parse(localStorage.getItem("vidLib") || "[]");
     vLib = vLib.filter(function(x){ return x.key !== cKey; });
-    vLib.unshift({ name: vFile.name, size: vFile.size, key: cKey, count: vsubs.length, date: new Date().toLocaleDateString() });
+    vLib.unshift({ name: vFile.name, size: vFile.size, key: cKey, count: vsubs.length, date: new Date().toLocaleDateString(), hasVideo: true });
     localStorage.setItem("vidLib", JSON.stringify(vLib));
   } catch(e) {}
+  // 异步把视频本体写入 IndexedDB，下次点开可自动播放
+  saveVideoBlob(cKey, vFile).then(function(ok){
+    if(ok){
+      try{
+        var vLib2 = JSON.parse(localStorage.getItem("vidLib") || "[]");
+        vLib2.forEach(function(x){ if(x.key===cKey) x.hasVideo=true; });
+        localStorage.setItem("vidLib", JSON.stringify(vLib2));
+      }catch(e){}
+    }
+  });
 }
 
 /* ASR */
@@ -405,7 +495,57 @@ window.loadHis=function(key){
   var cached=null; try{ cached=JSON.parse(localStorage.getItem(key)||"null"); }catch(e){}
   if(!cached){ toast("缓存丢失"); return; }
   vsubs=cached; setSrc("local"); $("ctl").classList.remove("hide"); $("vl").innerHTML=""; renderV();
-  var v=$("vp"); if(vFile && ("vcache_"+vFile.name+"_"+vFile.size)===key){ v.classList.remove("hide"); setVideo(vFile, 0); } else { v.classList.add("hide"); vs("未加载原视频文件，仅显示文本。要播放请点“📁 本地视频”选同名文件。"); }
+  var v=$("vp");
+  var ps=$("pickSame"); if(ps) ps.remove();
+
+  // 1) 当前会话已有同一文件
+  if(vFile && ("vcache_"+vFile.name+"_"+vFile.size)===key){
+    v.classList.remove("hide");
+    setVideo(vFile, 0);
+    vs("已加载字幕（"+vsubs.length+" 句），视频可播放。");
+    return;
+  }
+
+  // 2) 从 IndexedDB 自动恢复视频（无需再选文件）
+  vs("正在自动加载视频…");
+  idbGet(key).then(function(rec){
+    if(rec && rec.blob){
+      try{
+        var blob = rec.blob;
+        var meta = rec.meta || {};
+        // 包一层 File，方便后续 name/size 逻辑
+        try{
+          vFile = new File([blob], meta.name || "video.mp4", {type: meta.type || blob.type || "video/mp4"});
+        }catch(e){
+          vFile = blob;
+          try{ Object.defineProperty(vFile, "name", {value: meta.name || "video.mp4", configurable:true}); }catch(e2){}
+        }
+        v.classList.remove("hide");
+        setVideo(vFile, 0);
+        vs("已自动加载视频 + 字幕（"+vsubs.length+" 句）。");
+        return;
+      }catch(e){}
+    }
+    // 3) 没有存过视频：仅字幕 + 引导重选
+    v.classList.add("hide");
+    v.removeAttribute("src");
+    try{ v.load(); }catch(e){}
+    window._pendingLibKey = key;
+    vs("仅显示字幕（"+vsubs.length+" 句）。首次保存时视频未写入缓存，请点「选择原视频」选同一文件（选一次后下次会自动打开）。");
+    if(!$("pickSame")){
+      var b=document.createElement("button");
+      b.className="cb sm";
+      b.id="pickSame";
+      b.textContent="📁 选择原视频";
+      b.onclick=function(){ $("vf").click(); };
+      var cx=$("ctl").querySelector(".cx");
+      if(cx) cx.insertBefore(b, cx.firstChild);
+    }
+  }).catch(function(){
+    v.classList.add("hide");
+    window._pendingLibKey = key;
+    vs("仅显示字幕。请点「选择原视频」加载画面。");
+  });
 };
 window.delHis=function(key){
   try{
@@ -415,6 +555,7 @@ window.delHis=function(key){
     localStorage.setItem("vidLib",JSON.stringify(vLib));
     renderHis();
   }catch(e){}
+  idbDel(key);
 };
 
 /* YouTube 收藏相关 */
@@ -491,16 +632,35 @@ $("bVBack").onclick=function(){
 var vFile=null,vTry=0,autoPending=false,VT=["","video/mp4","video/webm"];
 function setVideo(f,i){if(vurl)URL.revokeObjectURL(vurl);vTry=i;vurl=URL.createObjectURL(i===0?f:new Blob([f],{type:VT[i]}));$("vp").src=vurl}
 $("vf").onchange=function(){
-  var f=this.files[0];this.value="";if(!f)return;
-  clearInterval(ytTimer);ytId="";try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){}
+  var f=this.files[0]; this.value=""; if(!f) return;
+  clearInterval(ytTimer); ytId="";
+  try{ if(yt&&yt.pauseVideo) yt.pauseVideo(); }catch(e){}
+  try{ if(yt&&yt.destroy){ yt.destroy(); yt=null; } }catch(e){}
+  try{ $("ytwrap").innerHTML='<div id="ytp"></div>'; }catch(e){}
+
   vFile=f;
   var cacheKey = "vcache_" + f.name + "_" + f.size;
-  var cached = null;try { cached = JSON.parse(localStorage.getItem(cacheKey) || "null"); } catch(e) {}
-  
+  var cached = null;
+  try { cached = JSON.parse(localStorage.getItem(cacheKey) || "null"); } catch(e) {}
+
+  // 如果是从语料库点进来再选文件，优先用语料库那份 key 的缓存
+  if(window._pendingLibKey){
+    try{
+      var pend = JSON.parse(localStorage.getItem(window._pendingLibKey) || "null");
+      if(pend && pend.length){ cached = pend; cacheKey = window._pendingLibKey; }
+    }catch(e){}
+    window._pendingLibKey = null;
+  }
+
   setVideo(f, 0);
-  setSrc("local"); // 切换到本地视频模式
+  setSrc("local");
   resetRate();
-  
+  $("vp").classList.remove("hide");
+  var ps=$("pickSame"); if(ps) ps.remove();
+
+  // 立刻把视频写入 IDB，语料库下次可自动打开（字幕稍后再存）
+  saveVideoBlob(cacheKey, f);
+
   if (cached && cached.length) {
     vsubs = cached; renderV();
     vs("已加载缓存的字幕（共 " + vsubs.length + " 句），无需重新消耗 Key。");
@@ -508,12 +668,12 @@ $("vf").onchange=function(){
     vsubs = []; renderV();
     if (asrCfg.key) {
       vs("正在后台语音识别，请稍候…（视频可直接播放）");
-      ASRGO(false); 
+      ASRGO(false);
     } else if (cfg.key) {
       vs("正在后台画面识别，请稍候…（视频可直接播放）");
       runScan(false);
     } else {
-      vs("视频已加载，请配置 API Key 自动生成字幕。");
+      vs("视频已加载，请配置 API Key 自动生成字幕，或导入字幕文件。");
     }
   }
 };
