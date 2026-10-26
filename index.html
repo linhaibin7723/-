@@ -475,7 +475,19 @@ function syncSubs(ct){updCtl();var idx=-1,i;for(i=0;i<vsubs.length;i++){if(vsubs
 $("vp").ontimeupdate=function(){syncSubs(this.currentTime)};
 function seekTo(t){if(ytMode&&yt&&yt.seekTo){yt.seekTo(Math.max(0,t-0.3),true);yt.playVideo()}else{var v=$("vp");if(!v.src){ toast("请先点“📁 本地视频”选原文件，才能跳转播放"); return; }v.currentTime=Math.max(0,t-2);v.play()}}
 $("bVid").onclick=function(){$("vid").classList.remove("hide");if(src==="home"&&!feedLoaded)loadFeed()};
-$("bVBack").onclick=function(){if(src!=="home"){stopPlayback();setSrc("home");renderFeed(lastFeed);vs("点一个视频开始看；也可以搜索，或粘贴链接。");if(!lastFeed.length)loadFeed();return}scanning=false;$("vid").classList.add("hide")};
+$("bVBack").onclick=function(){
+  if(src!=="home"){
+    stopPlayback();
+    setSrc("home");
+    renderFeed(lastFeed);
+    vs("点一个视频开始看；也可以搜索，或粘贴链接。");
+    if(!lastFeed.length) loadFeed();
+    return;
+  }
+  scanning=false;
+  stopPlayback();
+  $("vid").classList.add("hide");
+};
 var vFile=null,vTry=0,autoPending=false,VT=["","video/mp4","video/webm"];
 function setVideo(f,i){if(vurl)URL.revokeObjectURL(vurl);vTry=i;vurl=URL.createObjectURL(i===0?f:new Blob([f],{type:VT[i]}));$("vp").src=vurl}
 $("vf").onchange=function(){
@@ -552,26 +564,39 @@ function ytApi(){if(ytReady)return ytReady;ytReady=new Promise(function(res,rej)
 function ytPlay(id){
   return ytApi().then(function(){
     return new Promise(function(res, rej){
-      var timeout = setTimeout(function(){ rej("加载超时"); }, 15000);
+      // 每次创建前彻底清空旧播放器
+      try{ if(yt){ try{yt.destroy()}catch(e){} yt=null; } }catch(e){}
+      $("ytwrap").innerHTML = '<div id="ytp"></div>';
       
-      yt = new YT.Player("ytp", {
-        videoId: id,
-        playerVars: {playsinline:1,rel:0,modestbranding:1,controls:0,disablekb:1,fs:0,iv_load_policy:3,cc_load_policy:0},
-        events: {
-          onReady: function(){
-            clearTimeout(timeout);
-            try{yt.unloadModule("captions")}catch(e){}
-            res();
-          },
-          onStateChange: function(e){
-            if(e.data===1){try{yt.unloadModule("captions")}catch(x){}}
-          },
-          onError: function(e){
-            clearTimeout(timeout);
-            rej("错误码 " + e.data);
+      var timeout = setTimeout(function(){ rej("加载超时"); }, 15000);
+      var settled = false;
+      function done(ok, err){
+        if(settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        if(ok) res(); else rej(err || "未知错误");
+      }
+      
+      try {
+        yt = new YT.Player("ytp", {
+          videoId: id,
+          playerVars: {playsinline:1,rel:0,modestbranding:1,controls:0,disablekb:1,fs:0,iv_load_policy:3,cc_load_policy:0},
+          events: {
+            onReady: function(){
+              try{yt.unloadModule("captions")}catch(e){}
+              done(true);
+            },
+            onStateChange: function(e){
+              if(e.data===1){try{yt.unloadModule("captions")}catch(x){}}
+            },
+            onError: function(e){
+              done(false, "错误码 " + e.data);
+            }
           }
-        }
-      });
+        });
+      } catch(e) {
+        done(false, String(e && e.message || e));
+      }
     });
   });
 }
@@ -611,18 +636,46 @@ async function fetchTracks(tracks, ua){
 }
 
 async function ytCaptions(id){
-  var diag=[],i;
-  
-  // 方案 1：通过 5 种 API 客户端尝试
+  var diag=[], i;
+
+  // 方案 0：直接 timedtext（部分环境可用）
+  try {
+    var urls = [
+      "https://www.youtube.com/api/timedtext?v="+id+"&lang=en&fmt=json3",
+      "https://www.youtube.com/api/timedtext?v="+id+"&lang=en&fmt=srv3",
+      "https://www.youtube.com/api/timedtext?v="+id+"&lang=en",
+      "https://www.youtube.com/api/timedtext?v="+id+"&lang=en-US&fmt=json3"
+    ];
+    for(var u=0; u<urls.length; u++){
+      try{
+        var r0 = await fetch(urls[u], {headers:{"origin":"https://www.youtube.com","referer":"https://www.youtube.com/"}});
+        if(!r0.ok) continue;
+        var tx0 = await r0.text();
+        if(!tx0 || !tx0.trim()) continue;
+        var raw0 = parseTimed(tx0);
+        if(raw0.length){
+          var merged = mergeCues(raw0, false);
+          if(merged && merged.length) return merged;
+        }
+      }catch(e){}
+    }
+    diag.push("timedtext 无结果");
+  } catch(e){ diag.push("timedtext 失败"); }
+
+  // 方案 1：多客户端 innertube
   for(i=0;i<YT_CLIENTS.length;i++){
-    var c=YT_CLIENTS[i],h={"content-type":"application/json"},tracks=null;
-    if(c.ua)h["user-agent"]=c.ua;
+    var c=YT_CLIENTS[i], h={"content-type":"application/json"}, tracks=null;
+    if(c.ua) h["user-agent"]=c.ua;
     try{
-      var r=await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false",{method:"POST",headers:h,body:JSON.stringify({context:c.ctx,videoId:id,contentCheckOk:true,racyCheckOk:true})});
-      if(!r.ok){diag.push(c.n+" HTTP "+r.status);continue}
+      var r=await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false",{
+        method:"POST",
+        headers:h,
+        body:JSON.stringify({context:c.ctx, videoId:id, contentCheckOk:true, racyCheckOk:true})
+      });
+      if(!r.ok){ diag.push(c.n+" HTTP "+r.status); continue; }
       var d=await r.json();
-      tracks=d.captions&&d.captions.playerCaptionsTracklistRenderer&&d.captions.playerCaptionsTracklistRenderer.captionTracks;
-      if(tracks&&tracks.length){
+      tracks = d.captions && d.captions.playerCaptionsTracklistRenderer && d.captions.playerCaptionsTracklistRenderer.captionTracks;
+      if(tracks && tracks.length){
         var cues = await fetchTracks(tracks, c.ua);
         if(cues && cues.length) return cues;
         else diag.push(c.n+" 轨道下载失败");
@@ -630,10 +683,10 @@ async function ytCaptions(id){
         var pStatus = d.playabilityStatus && d.playabilityStatus.status;
         diag.push(c.n+" 无字幕"+(pStatus?"("+pStatus+")":""));
       }
-    }catch(e){diag.push(c.n+" 网络失败");}
+    }catch(e){ diag.push(c.n+" 网络失败"); }
   }
-  
-  // 方案 2：直接抓取网页 HTML
+
+  // 方案 2：网页 HTML 解析
   try {
     diag.push("网页抓取");
     var hr = await fetch("https://www.youtube.com/watch?v="+id+"&hl=en");
@@ -641,8 +694,8 @@ async function ytCaptions(id){
     var match = html.match(/ytInitialPlayerResponse\s*=\s*({.+?})\s*;/);
     if(match && match[1]){
       var d2 = JSON.parse(match[1]);
-      var tr2 = d2.captions&&d2.captions.playerCaptionsTracklistRenderer&&d2.captions.playerCaptionsTracklistRenderer.captionTracks;
-      if(tr2&&tr2.length){
+      var tr2 = d2.captions && d2.captions.playerCaptionsTracklistRenderer && d2.captions.playerCaptionsTracklistRenderer.captionTracks;
+      if(tr2 && tr2.length){
         var cues2 = await fetchTracks(tr2, null);
         if(cues2 && cues2.length) return cues2;
         else diag.push("网页解析下载失败");
@@ -650,56 +703,81 @@ async function ytCaptions(id){
         diag.push("网页无字幕");
       }
     } else {
+      var m2 = html.match(/"captionTracks":\s*(\[[^\]]+\])/);
+      if(m2){
+        try{
+          var tracksLoose = JSON.parse(m2[1]);
+          if(tracksLoose && tracksLoose.length){
+            var cues3 = await fetchTracks(tracksLoose, null);
+            if(cues3 && cues3.length) return cues3;
+          }
+        }catch(e){}
+      }
       diag.push("网页格式错误");
     }
   } catch(e){ diag.push("网页请求失败"); }
-  
-  if(diag.every(function(x){return x.indexOf("无字幕")>-1 || x.indexOf("无字幕轨道")>-1})) return [];
-  throw {detail:diag.join(" | ")};
+
+  if(diag.every(function(x){ return /无字幕|无结果|timedtext/.test(x); })) return [];
+  throw {detail: diag.join(" | ")};
 }
 
 async function ytTranslate(id){var B=20,i,fails=0;window.retryHook=function(n,sec){vs("服务繁忙，"+sec+" 秒后重试（第 "+n+" 次）…")};try{for(i=0;i<vsubs.length&&id===ytId;i+=B){var chunk=vsubs.slice(i,i+B).filter(function(c){return !c.zh});if(!chunk.length)continue;vs("AI 翻译中… "+Math.min(i+B,vsubs.length)+" / "+vsubs.length+"（可以先看，译文会陆续出现）");try{var r=await sample.json("把下面的英文字幕逐条翻译成自然的中文口语。只返回 JSON 数组，每条一个对象：{\"i\":编号,\"zh\":\"译文\"}，条数必须一致，不要漏。\n"+JSON.stringify(chunk.map(function(c,k){return {i:k,en:c.en}})));(Array.isArray(r)?r:[]).forEach(function(o){var c=chunk[o&&o.i];if(c&&o.zh)c.zh=String(o.zh)});fails=0;renderV()}catch(e){if(e&&e.code==="not_granted")throw e;if(++fails>=3)throw e}}if(id===ytId)vs("字幕已就绪，共 "+vsubs.length+" 句。点句子跳转，右滑收藏，点单词查词典。")}finally{window.retryHook=null}}
 
 async function ytLoad(id, title){
-  currentYt = {id: id, title: title || 'YouTube Video'};
-  updateYtFavBtn();
-  runId++;scanning=false;ytId=id;setSrc("yt");resetRate();vsubs=[];renderV();
-  try{$("vp").pause()}catch(e){}
-  vs("正在加载视频…");
-  
-  if(yt && yt.destroy) {
-    try { yt.destroy(); } catch(e){}
-    yt = null;
-  }
-  $("ytwrap").innerHTML = '<div id="ytp"></div>';
+  // 切换前彻底停止上一个视频
+  clearInterval(ytTimer); ytTimer=null;
+  runId++; scanning=false;
+  try{ if(yt){ try{yt.stopVideo()}catch(e){} try{yt.pauseVideo()}catch(e){} try{yt.destroy()}catch(e){} } }catch(e){}
+  yt=null;
+  try{ $("ytwrap").innerHTML = '<div id="ytp"></div>'; }catch(e){}
+  try{ $("vp").pause(); }catch(e){}
 
-  try { await ytPlay(id); } 
-  catch(e) {
+  currentYt = {id: id, title: title || 'YouTube Video'};
+  ytId = id;
+  setSrc("yt");
+  updateYtFavBtn();
+  resetRate();
+  vsubs = [];
+  renderV();
+  vs("正在加载视频…");
+
+  try {
+    await ytPlay(id);
+  } catch(e) {
     ytReady = null;
-    vs("加载不了 YouTube 播放器：" + e + "。请检查网络是否能访问 YouTube。");
+    vs("加载不了 YouTube 播放器：" + (e || "未知") + "。请检查网络是否能访问 YouTube。");
     return;
   }
-  
-  if (id !== ytId) return;
+
+  if (id !== ytId) return; // 加载过程中用户已切换走
 
   clearInterval(ytTimer);
-  ytTimer=setInterval(function(){if(ytMode&&yt&&yt.getCurrentTime){try{syncSubs(yt.getCurrentTime())}catch(e){}}},300);
-  
+  ytTimer = setInterval(function(){
+    if(ytMode && yt && yt.getCurrentTime){
+      try{ syncSubs(yt.getCurrentTime()); }catch(e){}
+    }
+  }, 300);
+
   if(!cfg.key){
     vs("视频已加载。先点右上角 ⚙️ 填好 AI Key，才能翻译字幕。");
   }
   vs("正在获取字幕…");
   try{
-    var cues=await ytCaptions(id);
-    if(id!==ytId)return;
+    var cues = await ytCaptions(id);
+    if(id !== ytId) return;
     if(!cues || !cues.length){
-      vs("没有获取到字幕。可能该视频无字幕，或解析被拦截。");
+      vs("没有获取到字幕。可能该视频无字幕，或被拦截。可点“📄 导入字幕”手动导入。");
       return;
     }
     addSubs(cues);
-    if(!cfg.key){vs("已获取 "+cues.length+" 句字幕。填好 AI Key 后可自动翻译。");return}
+    if(!cfg.key){
+      vs("已获取 " + cues.length + " 句字幕。填好 AI Key 后可自动翻译。");
+      return;
+    }
     await ytTranslate(id);
-  }catch(e){vs("获取字幕失败："+((e&&e.detail)||"未知原因")+"。可以点“导入字幕”手动导入。")}
+  }catch(e){
+    if(id === ytId) vs("获取字幕失败：" + ((e && e.detail) || "未知原因") + "。可以点“导入字幕”手动导入。");
+  }
 }
 var src="home",feedLoaded=false;
 function setSrc(m){
@@ -714,7 +792,15 @@ function setSrc(m){
   
   if(m==="yt"){ $("bVidFav").style.display="inline-block"; } else { $("bVidFav").style.display="none"; }
 }
-function stopPlayback(){clearInterval(ytTimer);ytId="";runId++;scanning=false;try{if(yt&&yt.pauseVideo)yt.pauseVideo()}catch(e){};try{$("vp").pause()}catch(e){}}
+function stopPlayback(){
+  clearInterval(ytTimer); ytTimer=null;
+  ytId=""; runId++; scanning=false; currentYt=null;
+  try{ if(yt){ try{yt.stopVideo()}catch(e){} try{yt.pauseVideo()}catch(e){} try{yt.destroy()}catch(e){} } }catch(e){}
+  yt=null;
+  try{ $("ytwrap").innerHTML = '<div id="ytp"></div>'; }catch(e){}
+  try{ $("vp").pause(); $("vp").removeAttribute("src"); $("vp").load(); }catch(e){}
+  try{ updateYtFavBtn(); }catch(e){}
+}
 function txt(x){return x?(x.simpleText||(x.runs&&x.runs.map(function(r){return r.text}).join(""))||x.content||""):""}
 function collectVideos(o,out,seen){if(!o||typeof o!=="object"||out.length>=40)return;if(Array.isArray(o)){o.forEach(function(x){collectVideos(x,out,seen)});return}var v=o.videoRenderer||o.compactVideoRenderer;if(v&&v.videoId&&!seen[v.videoId]){seen[v.videoId]=1;out.push({id:v.videoId,t:txt(v.title),c:txt(v.ownerText||v.longBylineText||v.shortBylineText),d:txt(v.lengthText)});return}var l=o.lockupViewModel;if(l&&l.contentId&&/VIDEO/.test(l.contentType||"")&&!seen[l.contentId]){var m=l.metadata&&l.metadata.lockupMetadataViewModel,ch="";try{ch=m.metadata.contentMetadataViewModel.metadataRows[0].metadataParts[0].text.content}catch(e){}seen[l.contentId]=1;out.push({id:l.contentId,t:txt(m&&m.title),c:ch,d:""});return}for(var k in o)collectVideos(o[k],out,seen)}
 async function ytCall(ep,body){var r=await fetch("https://www.youtube.com/youtubei/v1/"+ep+"?prettyPrint=false",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(Object.assign({context:{client:{clientName:"WEB",clientVersion:"2.20250310.01.00",hl:"en",gl:"US"}}},body))});if(!r.ok)throw {detail:"HTTP "+r.status};return r.json()}
