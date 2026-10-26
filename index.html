@@ -544,7 +544,7 @@ async function candidates(){var pv=cfg.prov,list=[],url,headers;if(pv==="anthrop
 function renderModels(){var box=$("mlist");if(!box)return;var a=(cfg.avail&&cfg.avail[cfg.prov])||[],ct=cfg.text||P[cfg.prov].text,cv=cfg.vis||P[cfg.prov].vis;box.innerHTML=a.length?a.map(function(m){return '<div class="mrow"><span class="mid">'+esc(m.id)+(m.vis?' 🖼':'')+(m.busy?' <span class="zt">（繁忙）</span>':'')+'</span><button class="mt'+(ct===m.id?' on':'')+'" data-id="'+esc(m.id)+'">文字</button>'+(m.vis?'<button class="mv'+(cv===m.id?' on':'')+'" data-id="'+esc(m.id)+'">图片</button>':'<span class="mx"></span>')+'</div>'}).join(""):'<div class="zt" style="margin-top:8px">点上面的按钮，自动测试你的 Key 能用哪些模型。</div>'}
 async function testModels(){var say2=function(m){var e=$("astat");if(e)e.textContent=m};var btn=$("amods");if(testing){testing=false;return}if(!cfg.key){say2("请先填写 API Key。");return}testing=true;btn.textContent="⏹ 停止测试";var pv=cfg.prov,cand=[],ok=[],i,r;try{say2("正在获取模型列表…");cand=await candidates();for(i=0;i<cand.length&&testing;i++){say2("测试文字能力 "+(i+1)+"/"+cand.length+"："+cand[i]);r=await pingModel(cand[i],false);if(r.status===401||r.status===403){say2("Key 不对或没有权限（HTTP "+r.status+"）。");testing=false;break}if(r.ok)ok.push({id:cand[i],vis:false});else if(r.status===429&&["1113","1304","1308","1309","1310"].indexOf(r.ec)<0)ok.push({id:cand[i],vis:false,busy:true});await sleep(250)}for(i=0;i<ok.length&&testing;i++){say2("测试图片能力 "+(i+1)+"/"+ok.length+"："+ok[i].id);r=await pingModel(ok[i].id,true);ok[i].vis=!!r.ok;await sleep(250)}if(testing||ok.length){cfg.avail=cfg.avail||{};cfg.avail[pv]=ok;saveCfg();renderModels();say2("测了 "+cand.length+" 个模型，"+ok.length+" 个能用，其中 "+ok.filter(function(m){return m.vis}).length+" 个能看图片。点“文字”或“图片”来选用。")}}catch(e){say2("测试中断，请再试一次。")}testing=false;var b2=$("amods");if(b2)b2.textContent="🔍 自动测试可用模型"}
 
-/* YouTube 核心逻辑修复 */
+/* YouTube 核心逻辑修复：使用目前可用的最新客户端 */
 var ytMode=false,yt=null,ytReady=null,ytId="",ytTimer=null;
 function ytParse(u){u=String(u).trim();var m=u.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/|\/live\/)([A-Za-z0-9_-]{11})/);return m?m[1]:(/^[A-Za-z0-9_-]{11}$/.test(u)?u:"")}
 function ytApi(){if(ytReady)return ytReady;ytReady=new Promise(function(res,rej){if(window.YT&&YT.Player){res();return}window.onYouTubeIframeAPIReady=res;var sc=document.createElement("script");sc.src="https://www.youtube.com/iframe_api";sc.onerror=rej;document.head.appendChild(sc);setTimeout(rej,12000)});return ytReady}
@@ -581,11 +581,11 @@ function ytPlay(id){
 }
 function mergeCues(raw,asr){var out=[],cur=null,max=asr?90:150;raw.forEach(function(c){var t=c.s.replace(/\[[^\]]*\]/g,"").replace(/\s+/g," ").trim();if(!t)return;if(cur&&(cur.en+" "+t).length<=max&&!/[.!?…]["”')]?$/.test(cur.en)&&c.t-cur.last<2){cur.en+=" "+t;cur.last=c.t}else{if(cur)out.push({t:cur.t,en:cur.en,zh:""});cur={t:c.t,en:t,last:c.t}}});if(cur)out.push({t:cur.t,en:cur.en,zh:""});return out}
 
-/* 更新了 Client 版本，增加了诊断信息 */
 var YT_CLIENTS=[
   {n:"IOS",ctx:{client:{clientName:"IOS",clientVersion:"20.10.4",deviceModel:"iPhone16,2",hl:"en",gl:"US"}},ua:"com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)"},
-  {n:"ANDROID",ctx:{client:{clientName:"ANDROID",clientVersion:"20.10.38",androidSdkVersion:34,hl:"en",gl:"US"}},ua:"com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip"},
-  {n:"TV",ctx:{client:{clientName:"TVHTML5_SIMPLY_EMBEDDED_PLAYER",clientVersion:"2.0",hl:"en",gl:"US"},thirdParty:{embedUrl:"https://www.youtube.com/"}},ua:null},
+  {n:"ANDROID_VR",ctx:{client:{clientName:"ANDROID_VR",clientVersion:"1.60.19",androidSdkVersion:32,hl:"en",gl:"US"}},ua:"com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12; en_US; Quest 3; gzip)"},
+  {n:"MWEB",ctx:{client:{clientName:"MWEB",clientVersion:"2.20250310.01.00",hl:"en",gl:"US"}},ua:"Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36"},
+  {n:"TVHTML5_SIMPLY_EMBEDDED_PLAYER",ctx:{client:{clientName:"TVHTML5_SIMPLY_EMBEDDED_PLAYER",clientVersion:"2.0",hl:"en",gl:"US"},thirdParty:{embedUrl:"https://www.youtube.com/"}},ua:null},
   {n:"WEB",ctx:{client:{clientName:"WEB",clientVersion:"2.20250310.01.00",hl:"en",gl:"US"}},ua:"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"}
 ];
 function unent(x){var t=document.createElement("textarea");t.innerHTML=x;return t.value}
@@ -606,7 +606,7 @@ async function ytCaptions(id){
         diag.push(c.n+" 无字幕轨道"+(pStatus?"（"+pStatus+"）":""));
         continue;
       }
-    }catch(e){diag.push(c.n+" 请求失败 (可能被CORS拦截)");continue}
+    }catch(e){diag.push(c.n+" 请求失败 (CORS拦截)");continue}
     
     var en=tracks.filter(function(x){return /^en/i.test(x.languageCode)});
     var pick=en.filter(function(x){return x.kind!=="asr"})[0]||en[0],extra="";
@@ -615,10 +615,8 @@ async function ytCaptions(id){
     for(f=0;f<fmts.length;f++){
       try{
         var u=pick.baseUrl.replace(/&fmt=[^&]*/,"")+extra+fmts[f];
-        var h2 = {};
+        var h2 = {"origin": "https://www.youtube.com", "referer": "https://www.youtube.com/"};
         if(c.ua) h2["user-agent"] = c.ua;
-        h2["origin"] = "https://www.youtube.com";
-        h2["referer"] = "https://www.youtube.com/";
         
         var r2=await fetch(u,{headers:h2});
         var tx=await r2.text();
