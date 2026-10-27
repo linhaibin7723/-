@@ -716,7 +716,7 @@ async function candidates(){var pv=cfg.prov,list=[],url,headers;if(pv==="anthrop
 function renderModels(){var box=$("mlist");if(!box)return;var a=(cfg.avail&&cfg.avail[cfg.prov])||[],ct=cfg.text||P[cfg.prov].text,cv=cfg.vis||P[cfg.prov].vis;box.innerHTML=a.length?a.map(function(m){return '<div class="mrow"><span class="mid">'+esc(m.id)+(m.vis?' 🖼':'')+(m.busy?' <span class="zt">（繁忙）</span>':'')+'</span><button class="mt'+(ct===m.id?' on':'')+'" data-id="'+esc(m.id)+'">文字</button>'+(m.vis?'<button class="mv'+(cv===m.id?' on':'')+'" data-id="'+esc(m.id)+'">图片</button>':'<span class="mx"></span>')+'</div>'}).join(""):'<div class="zt" style="margin-top:8px">点上面的按钮，自动测试你的 Key 能用哪些模型。</div>'}
 async function testModels(){var say2=function(m){var e=$("astat");if(e)e.textContent=m};var btn=$("amods");if(testing){testing=false;return}if(!cfg.key){say2("请先填写 API Key。");return}testing=true;btn.textContent="⏹ 停止测试";var pv=cfg.prov,cand=[],ok=[],i,r;try{say2("正在获取模型列表…");cand=await candidates();for(i=0;i<cand.length&&testing;i++){say2("测试文字能力 "+(i+1)+"/"+cand.length+"："+cand[i]);r=await pingModel(cand[i],false);if(r.status===401||r.status===403){say2("Key 不对或没有权限（HTTP "+r.status+"）。");testing=false;break}if(r.ok)ok.push({id:cand[i],vis:false});else if(r.status===429&&["1113","1304","1308","1309","1310"].indexOf(r.ec)<0)ok.push({id:cand[i],vis:false,busy:true});await sleep(250)}for(i=0;i<ok.length&&testing;i++){say2("测试图片能力 "+(i+1)+"/"+ok.length+"："+ok[i].id);r=await pingModel(ok[i].id,true);ok[i].vis=!!r.ok;await sleep(250)}if(testing||ok.length){cfg.avail=cfg.avail||{};cfg.avail[pv]=ok;saveCfg();renderModels();say2("测了 "+cand.length+" 个模型，"+ok.length+" 个能用，其中 "+ok.filter(function(m){return m.vis}).length+" 个能看图片。点“文字”或“图片”来选用。")}}catch(e){say2("测试中断，请再试一次。")}testing=false;var b2=$("amods");if(b2)b2.textContent="🔍 自动测试可用模型"}
 
-/* ================= YouTube 核心逻辑：终极稳定版 ================= */
+/* ================= YouTube 终极稳定版抓取逻辑 ================= */
 var ytMode=false,yt=null,ytReady=null,ytId="",ytTimer=null;
 function ytParse(u){u=String(u).trim();var m=u.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/|\/live\/)([A-Za-z0-9_-]{11})/);return m?m[1]:(/^[A-Za-z0-9_-]{11}$/.test(u)?u:"")}
 function ytApi(){if(ytReady)return ytReady;ytReady=new Promise(function(res,rej){if(window.YT&&YT.Player){res();return}window.onYouTubeIframeAPIReady=res;var sc=document.createElement("script");sc.src="https://www.youtube.com/iframe_api";sc.onerror=rej;document.head.appendChild(sc);setTimeout(rej,12000)});return ytReady}
@@ -763,58 +763,130 @@ function mergeCues(raw,asr){var out=[],cur=null,max=asr?90:150;raw.forEach(funct
 function unent(x){var t=document.createElement("textarea");t.innerHTML=x;return t.value}
 function parseTimed(txt){txt=String(txt||"").trim();var raw=[],i,x;if(!txt)return raw;if(txt.charAt(0)==="{"){try{var obj=JSON.parse(txt);(obj.events||[]).forEach(function(e){if(!e.segs)return;x=e.segs.map(function(g){return g.utf8||""}).join("").replace(/\s+/g," ").trim();if(x)raw.push({t:(e.tStartMs||0)/1000,s:x})});return raw}catch(e){return raw}}var doc=new DOMParser().parseFromString(txt,"text/xml"),ns=doc.getElementsByTagName("text");if(ns.length){for(i=0;i<ns.length;i++){x=unent(ns[i].textContent).replace(/\s+/g," ").trim();if(x)raw.push({t:parseFloat(ns[i].getAttribute("start")||0),s:x})}return raw}var ps=doc.getElementsByTagName("p");for(i=0;i<ps.length;i++){x=unent(ps[i].textContent).replace(/\s+/g," ").trim();if(x)raw.push({t:parseFloat(ps[i].getAttribute("t")||0)/1000,s:x})}return raw}
 
-// 👇 这是被彻底重写、极其稳定、专属 Android 客户端的抓字幕函数
+// 核心：多客户端回退请求，强行突破限制
 async function ytCaptions(id) {
-  var playerBody = {
-    context: {
-      client: {
-        clientName: "ANDROID",
-        clientVersion: "20.10.38", // 2026年仍有效的版本号
-        androidSdkVersion: 30,
-        hl: "en",
-        gl: "US"
+  var diag = [];
+
+  // 方案1：ANDROID 客户端 (最高成功率)
+  try {
+    var androidBody = {
+      context: {
+        client: {
+          clientName: "ANDROID",
+          clientVersion: "20.10.38",
+          androidSdkVersion: 34,
+          hl: "en",
+          gl: "US"
+        }
+      },
+      videoId: id,
+      contentCheckOk: true,
+      racyCheckOk: true
+    };
+
+    var r = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "user-agent": "com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US; Pixel 8 Pro Build/AP1A.240305.019.A1; gzip) gzip"
+      },
+      body: JSON.stringify(androidBody)
+    });
+
+    if (r.ok) {
+      var data = await r.json();
+      var tracks = data.captions && data.captions.playerCaptionsTracklistRenderer && data.captions.playerCaptionsTracklistRenderer.captionTracks;
+      
+      if (tracks && tracks.length) {
+        var enTracks = tracks.filter(function(x){ return /^en/i.test(x.languageCode) });
+        var pick = enTracks.filter(function(x){ return x.kind !== "asr" })[0] || enTracks[0] || tracks[0];
+        var extra = enTracks.length ? "" : "&tlang=en";
+        
+        var fmts = ["&fmt=json3", "&fmt=srv3", ""];
+        for (var f = 0; f < fmts.length; f++) {
+          try {
+            var u = pick.baseUrl.replace(/&fmt=[^&]*/g, "") + extra + fmts[f];
+            var r2 = await fetch(u, {
+              headers: {
+                "user-agent": "com.google.android.youtube/20.10.38",
+                "origin": "https://www.youtube.com",
+                "referer": "https://www.youtube.com/"
+              }
+            });
+            if (!r2.ok) continue;
+            var tx = await r2.text();
+            if (!tx.trim()) continue;
+            
+            var raw = parseTimed(tx);
+            if (raw.length) return mergeCues(raw, pick.kind === "asr");
+          } catch(e) { diag.push("ANDROID轨道下载失败:" + e); }
+        }
+      } else {
+        var pStatus = data.playabilityStatus && data.playabilityStatus.status;
+        diag.push("ANDROID无轨道" + (pStatus ? "("+pStatus+")" : ""));
       }
-    },
-    videoId: id,
-    contentCheckOk: true,
-    racyCheckOk: true
-  };
-
-  var r = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(playerBody)
-  });
-
-  if (!r.ok) throw { detail: "InnerTube HTTP " + r.status };
-  var data = await r.json();
-  var tracks = data.captions && data.captions.playerCaptionsTracklistRenderer && data.captions.playerCaptionsTracklistRenderer.captionTracks;
-  if (!tracks || !tracks.length) {
-    var pStatus = data.playabilityStatus && data.playabilityStatus.status;
-    throw { detail: "未返回字幕轨道" + (pStatus ? "(" + pStatus + ")" : "") };
+    } else {
+      diag.push("ANDROID HTTP " + r.status);
+    }
+  } catch(e) {
+    diag.push("ANDROID请求异常");
   }
 
-  // 优先找英文字幕（手动 > 自动）
-  var enTracks = tracks.filter(function(x){ return /^en/i.test(x.languageCode) });
-  var pick = enTracks.filter(function(x){ return x.kind !== "asr" })[0] || enTracks[0] || tracks[0];
-  var extra = enTracks.length ? "" : "&tlang=en";
+  // 方案2：WEB 客户端 (网页版伪装)
+  try {
+    var webBody = {
+      context: {
+        client: {
+          clientName: "WEB",
+          clientVersion: "2.20250310.01.00",
+          hl: "en",
+          gl: "US"
+        }
+      },
+      videoId: id,
+      contentCheckOk: true,
+      racyCheckOk: true
+    };
 
-  // 依次尝试 json3、srv3、xml 三种格式
-  var fmts = ["&fmt=json3", "&fmt=srv3", ""];
-  for (var i = 0; i < fmts.length; i++) {
-    try {
-      var u = pick.baseUrl.replace(/&fmt=[^&]*/g, "") + extra + fmts[i];
-      var r2 = await fetch(u, { headers: { "origin": "https://www.youtube.com", "referer": "https://www.youtube.com/" } });
-      if (!r2.ok) continue;
-      var tx = await r2.text();
-      if (!tx.trim()) continue;
-      var raw = parseTimed(tx);
-      if (raw.length) return mergeCues(raw, pick.kind === "asr");
-    } catch(e) {}
+    var rWeb = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+      },
+      body: JSON.stringify(webBody)
+    });
+
+    if (rWeb.ok) {
+      var dataWeb = await rWeb.json();
+      var tracksWeb = dataWeb.captions && dataWeb.captions.playerCaptionsTracklistRenderer && dataWeb.captions.playerCaptionsTracklistRenderer.captionTracks;
+      if (tracksWeb && tracksWeb.length) {
+        var enTracksWeb = tracksWeb.filter(function(x){ return /^en/i.test(x.languageCode) });
+        var pickWeb = enTracksWeb.filter(function(x){ return x.kind !== "asr" })[0] || enTracksWeb[0] || tracksWeb[0];
+        
+        var fmtsWeb = ["&fmt=json3", "&fmt=srv3", ""];
+        for (var fw = 0; fw < fmtsWeb.length; fw++) {
+          var uWeb = pickWeb.baseUrl.replace(/&fmt=[^&]*/g, "") + fmtsWeb[fw];
+          var r2Web = await fetch(uWeb, {
+            headers: { 
+              "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/133.0.0.0",
+              "referer": "https://www.youtube.com/" 
+            }
+          });
+          if (!r2Web.ok) continue;
+          var txWeb = await r2Web.text();
+          if (!txWeb.trim()) continue;
+          var rawWeb = parseTimed(txWeb);
+          if (rawWeb.length) return mergeCues(rawWeb, pickWeb.kind === "asr");
+        }
+      }
+    }
+  } catch(e) {
+    diag.push("WEB请求异常");
   }
-  throw { detail: "轨道下载失败" };
+
+  throw { detail: "字幕下载失败: " + diag.join(" | ") };
 }
-// 👆 替换结束
 
 async function ytTranslate(id){var B=20,i,fails=0;window.retryHook=function(n,sec){vs("服务繁忙，"+sec+" 秒后重试（第 "+n+" 次）…")};try{for(i=0;i<vsubs.length&&id===ytId;i+=B){var chunk=vsubs.slice(i,i+B).filter(function(c){return !c.zh});if(!chunk.length)continue;vs("AI 翻译中… "+Math.min(i+B,vsubs.length)+" / "+vsubs.length+"（可以先看，译文会陆续出现）");try{var r=await sample.json("把下面的英文字幕逐条翻译成自然的中文口语。只返回 JSON 数组，每条一个对象：{\"i\":编号,\"zh\":\"译文\"}，条数必须一致，不要漏。\n"+JSON.stringify(chunk.map(function(c,k){return {i:k,en:c.en}})));(Array.isArray(r)?r:[]).forEach(function(o){var c=chunk[o&&o.i];if(c&&o.zh)c.zh=String(o.zh)});fails=0;renderV()}catch(e){if(e&&e.code==="not_granted")throw e;if(++fails>=3)throw e}}if(id===ytId)vs("字幕已就绪，共 "+vsubs.length+" 句。点句子跳转，右滑收藏，点单词查词典。")}finally{window.retryHook=null}}
 
