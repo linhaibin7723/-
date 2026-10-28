@@ -20,21 +20,20 @@ body > header > button, body > header > span { display: none; }
 #chat{flex:1;overflow-y:auto;padding:16px 16px 0}
 /* 用户气泡 */
 .u{background:var(--acc);color:var(--accfg);padding:12px 18px;border-radius:20px 20px 4px 20px;margin:16px 0 16px auto;max-width:85%;width:fit-content;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,122,255,0.2)}
+
 /* 底部 TabBar */
 .tab-bar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:calc(100% - 40px);max-width:640px;background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-radius:30px;display:flex;justify-content:space-around;padding:10px 0;box-shadow:0 8px 30px rgba(0,0,0,0.08);z-index:10;border:.5px solid var(--bd)}
 .tab-item{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--mut);font-size:11px;font-weight:500;cursor:pointer;flex:1;transition:all .2s}
 .tab-item.on{color:var(--acc)}
 .tab-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .2s}
 .tab-item.on .tab-icon{background:rgba(0,122,255,0.1)}
-/* 模式切换 */
-.modes{display:flex;gap:8px;padding:8px 16px 8px;overflow-x:auto;background:transparent;justify-content:center}
-.mode{flex:none;padding:6px 14px;border-radius:16px;background:rgba(255,255,255,0.6);border:none;font-size:13px;color:#666;backdrop-filter:blur(10px);transition:all .2s}
-.mode.on{background:var(--acc);color:var(--accfg);box-shadow:0 2px 8px rgba(0,122,255,0.3)}
+
 /* 输入区 */
 .inp{display:flex;gap:8px;align-items:flex-end;padding:8px 16px 12px;background:transparent;border-top:none;position:relative;z-index:5}
 textarea{flex:1;max-height:120px;min-height:44px;padding:12px 18px;border-radius:22px;border:none;background:var(--card);color:var(--fg);font:inherit;resize:none;box-shadow:0 2px 12px rgba(0,0,0,0.04)}
 #send{width:44px;height:44px;border-radius:50%;background:var(--acc);color:var(--accfg);font-size:18px;flex:none;box-shadow:0 2px 8px rgba(0,122,255,0.2)}
 #send:disabled{opacity:.4}
+
 /* 弹层基础 */
 .ov{position:fixed;inset:0;background:var(--bg);z-index:20;display:flex;flex-direction:column;max-width:680px;margin:0 auto;padding-top:env(safe-area-inset-top,20px);padding-bottom:env(safe-area-inset-bottom,20px)}
 .tabs{display:flex;gap:6px;padding:8px 12px}.tab{padding:6px 16px;border-radius:999px;border:1px solid var(--bd);font-size:14px}
@@ -150,9 +149,11 @@ header{background:var(--glass);border-bottom:.5px solid var(--bd)}
   <span><button class="ib" id="bSet" aria-label="朗读设置">⚙️</button><button class="ib" id="bVid" aria-label="视频字幕">🎬</button><button class="ib" id="bNew" aria-label="新对话">🗑</button></span>
 </header>
 <div id="chat"></div>
-<div class="modes"><button class="mode on" data-m="say">英语怎么说</button><button class="mode" data-m="mean">什么意思</button><button class="mode" data-m="chat">💬 对话</button><button class="mode2" id="tpBtn" style="display:none">🎭 主题</button></div>
+
+<!-- 去掉了这里的 .modes 模式切换栏 -->
+
 <div class="inp">
-  <textarea id="q" rows="1" placeholder="想说什么？用中文问，或贴英文…"></textarea>
+  <textarea id="q" rows="1" placeholder="用中文问怎么说，或贴一句英文…"></textarea>
   <button id="send" aria-label="发送">➤</button>
 </div>
 
@@ -398,22 +399,78 @@ sample={limits:function(){return Promise.resolve({images:{maxCount:cfg.prov==="z
   var t;if(pv==="anthropic")t=(data.content||[]).map(function(x){return x.text||""}).join("");else t=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||"";t=String(t).replace(/```json|```/g,"").trim();var m=t.match(/[\[{][\s\S]*[\]}]/);try{return JSON.parse(m?m[0]:t)}catch(e){throw {code:"error",detail:"AI 返回的格式不对，请重试"}}
 }};
 
-var mode="say";var SUGGS={say:["你吃了吗？","我有点累了","能再说一遍吗？","我马上就到"],mean:["What's up?","Long time no see.","I'm running late.","Let's grab some coffee."],chat:["Hi! How's it going?","我想练习点餐","Let's talk about the weekend."]};
+var mode="say";
+var SUGGS={say:["你吃了吗？","我有点累了","能再说一遍吗？","我马上就到"],mean:["What's up?","Long time no see.","I'm running late.","Let's grab some coffee."],chat:["Hi! How's it going?","我想练习点餐","Let's talk about the weekend."]};
 var HELLO={say:"用中文问怎么说，或贴一句英文，我帮你改得更地道。",mean:"贴一句英文，我告诉你它是什么意思。",chat:"选一个生活场景开始练习，也可以直接随便聊。"};
 var PH={say:"用中文问怎么说，或贴一句英文…",mean:"贴一句英文，问我什么意思…",chat:"用英文或中文跟我聊天…"};
 var CTOPICS=[["🍔 点餐","在餐厅或快餐店点餐。你是服务员。"],["🛒 购物","在商店买东西，问价格、尺码和折扣。你是店员。"],["🧭 问路","在街上问路，问怎么坐公共交通。你是路人。"],["✈️ 机场","在机场值机、过安检、登机。你是机场工作人员。"],["🏨 酒店","在酒店办理入住、退房，提出需求。你是前台。"],["🩺 看医生","向医生描述身体不舒服。你是医生。"],["🏠 租房","看房和谈租房条件。你是房东。"],["💼 面试","参加求职面试。你是面试官。"],["📞 打电话","打电话预约或查询。你是接电话的人。"],["🏦 银行","在银行开户、转账或办卡。你是柜员。"],["🚕 打车","打车，和司机沟通路线。你是司机。"],["☕ 咖啡店","在咖啡店点饮品。你是咖啡师。"],["🤝 交朋友","认识新朋友，介绍自己，聊兴趣爱好。你是新认识的朋友。"],["🌤 聊天气","聊天气和周末计划。你是同事。"],["💪 健身","在健身房咨询课程和器材。你是教练。"],["📦 退货","联系客服处理快递或退货。你是客服。"]];
 var chatTopic=null;try{chatTopic=JSON.parse(localStorage.getItem("ctopic")||"null")}catch(e){}
 function updTp(){var b=$("tpBtn");if(b)b.textContent="🎭 "+(chatTopic?chatTopic[0].replace(/^\S+\s/,""):"主题")}
 function chatPrompt(q,opening){var k=-1,i;for(i=msgs.length-1;i>=0;i--){if(msgs[i].role==="s"){k=i;break}}var h=msgs.slice(k+1).filter(function(m){return m.mode==="chat"&&!m.err}).slice(-8).map(function(m){return m.role==="u"?"Student: "+m.t:"You: "+((m.d&&m.d.en)||"")}).join("\n");var tp=chatTopic?"\n\n场景：「"+chatTopic[0]+"」——"+chatTopic[1]+"请一直留在这个场景里，像真实的生活对话一样自然推进，每次只说一两句。":"";return P_CHAT+tp+"\n\n对话记录：\n"+(h||"（刚开始）")+"\n\n"+(opening?"请你先开口，用一句简单的英文开始这个场景的对话，fix 填 null。":"学生刚说："+q)}
-function topicStart(t){if(busy)return;chatTopic=t;try{localStorage.setItem("ctopic",JSON.stringify(t))}catch(e){};if(mode!=="chat")setMode("chat");updTp();var mid=String(Date.now());msgs.push({role:"s",mode:"sys",t:t[0]});busy=true;render();if(!sample){busy=false;msgs.push({role:"a",err:"当前环境无法使用 AI 功能。"});render();return}sample.json(chatPrompt("",true)).then(function(r){msgs.push({role:"a",d:r,mode:"chat",id:mid});if(r&&r.en)setTimeout(function(){say(r.en)},200)}).catch(function(e){msgs.push({role:"a",err:e&&e.code==="not_granted"?"请先点右上角 ⚙️，填写 API Key。":"出错了："+((e&&e.detail)||"请再试一次")})}).then(function(){busy=false;msgs=msgs.slice(-300);sv("msgs",msgs);render()})}
-$("tpBtn").onclick=function(){$("sheet").innerHTML='<b>选一个生活场景</b><div class="tgrid">'+CTOPICS.map(function(t,i){return '<button class="chip tp2" data-i="'+i+'">'+esc(t[0])+'</button>'}).join("")+'</div><div class="acts"><button id="tpFree">不用场景，自由聊</button></div>';$("mask").classList.remove("hide");$("sheet").onclick=function(e){var b=e.target.closest&&e.target.closest(".tp2");if(b){$("mask").classList.add("hide");topicStart(CTOPICS[+b.dataset.i]);return}if(e.target.id==="tpFree"){chatTopic=null;try{localStorage.removeItem("ctopic")}catch(e2){};msgs.push({role:"s",mode:"sys",t:"自由聊天"});sv("msgs",msgs);$("mask").classList.add("hide");updTp();render();toast("已切换为自由聊天",1200)}}};
-function ask(){var q=$("q").value.trim();if(!q||busy)return;$("q").value="";$("q").style.height="";var md=mode,prompt=md==="chat"?chatPrompt(q):((md==="mean"?P_MEAN:P_SAY)+"\n\n学生输入："+q);var mid=String(Date.now());msgs.push({role:"u",t:q,mode:md,id:mid});busy=true;render();if(!sample){busy=false;msgs.push({role:"a",err:"当前环境无法使用 AI 功能。"});render();return}sample.json(prompt).then(function(r){msgs.push({role:"a",d:r,mode:md,id:mid});if(md!=="chat"&&r&&r.en){hist=hist.filter(function(x){return x.en!==r.en});hist.unshift({en:r.en,zh:r.zh||"",mid:mid});hist=hist.slice(0,50);sv("hist",hist)}if(md==="chat"&&r&&r.en)setTimeout(function(){say(r.en)},200)}).catch(function(e){msgs.push({role:"a",err:e&&e.code==="not_granted"?"请先点右上角 ⚙️，填写 API Key。":"出错了："+((e&&e.detail)||"请再试一次")})}).then(function(){busy=false;msgs=msgs.slice(-300);sv("msgs",msgs);render()})}
+
+function topicStart(t){
+  if(busy)return;
+  chatTopic=t;
+  try{localStorage.setItem("ctopic",JSON.stringify(t))}catch(e){};
+  if(mode!=="chat")setMode("chat");
+  updTp();
+  var mid=String(Date.now());
+  msgs.push({role:"s",mode:"sys",t:t[0]});
+  busy=true;
+  render();
+  if(!sample){busy=false;msgs.push({role:"a",err:"当前环境无法使用 AI 功能。"});render();return}
+  sample.json(chatPrompt("",true)).then(function(r){
+    msgs.push({role:"a",d:r,mode:"chat",id:mid});
+    if(r&&r.en)setTimeout(function(){say(r.en)},200);
+  }).catch(function(e){
+    msgs.push({role:"a",err:e&&e.code==="not_granted"?"请先点右上角 ⚙️，填写 API Key。":"出错了："+((e&&e.detail)||"请再试一次")})
+  }).then(function(){
+    busy=false;msgs=msgs.slice(-300);sv("msgs",msgs);render();
+  });
+}
+
+// 智能判断意图
+function ask(){
+  var q=$("q").value.trim();
+  if(!q||busy)return;
+  $("q").value="";$("q").style.height="";
+  
+  var md = mode;
+  // 如果当前是 say 模式，智能判断是否是纯英文（自动切到 mean 模式）
+  if (md === "say" && !/[\u4e00-\u9fa5]/.test(q)) {
+    md = "mean";
+  }
+  
+  var prompt=md==="chat"?chatPrompt(q):((md==="mean"?P_MEAN:P_SAY)+"\n\n学生输入："+q);
+  var mid=String(Date.now());
+  msgs.push({role:"u",t:q,mode:md,id:mid});
+  busy=true;render();
+  if(!sample){busy=false;msgs.push({role:"a",err:"当前环境无法使用 AI 功能。"});render();return}
+  sample.json(prompt).then(function(r){
+    msgs.push({role:"a",d:r,mode:md,id:mid});
+    if(md!=="chat"&&r&&r.en){
+      hist=hist.filter(function(x){return x.en!==r.en});
+      hist.unshift({en:r.en,zh:r.zh||"",mid:mid});
+      hist=hist.slice(0,50);sv("hist",hist);
+    }
+    if(md==="chat"&&r&&r.en)setTimeout(function(){say(r.en)},200);
+  }).catch(function(e){
+    msgs.push({role:"a",err:e&&e.code==="not_granted"?"请先点右上角 ⚙️，填写 API Key。":"出错了："+((e&&e.detail)||"请再试一次")})
+  }).then(function(){
+    busy=false;msgs=msgs.slice(-300);sv("msgs",msgs);render();
+  });
+}
+
 var MN={say:"英语怎么说",mean:"什么意思",chat:"对话"};
-function setMode(m){mode=m;Array.prototype.forEach.call(document.querySelectorAll(".mode"),function(x){x.classList.toggle("on",x.dataset.m===m)});$("q").placeholder=PH[mode];$("tpBtn").style.display=m==="chat"?"":"none";updTp();render()}
-Array.prototype.forEach.call(document.querySelectorAll(".mode"),function(b){b.onclick=function(){setMode(b.dataset.m)}});
-var cx0=null;$("chat").addEventListener("touchstart",function(e){var t=e.touches[0];cx0={x:t.clientX,y:t.clientY}},{passive:true});
-$("chat").addEventListener("touchend",function(e){if(!cx0)return;var t=e.changedTouches[0],dx=t.clientX-cx0.x,dy=t.clientY-cx0.y;cx0=null;if(Math.abs(dx)<90||Math.abs(dy)>45||Math.abs(dx)<Math.abs(dy)*2.5)return;var ms=["say","mean","chat"],i=ms.indexOf(mode)+(dx<0?1:-1);if(i<0||i>=ms.length)return;setMode(ms[i]);toast(MN[ms[i]],1200)},{passive:true});
-$("q").placeholder=PH[mode];$("send").onclick=ask;$("q").oninput=function(){this.style.height="auto";this.style.height=Math.min(this.scrollHeight,120)+"px"};
+function setMode(m){
+  mode=m;
+  // 隐藏了模式切换按钮，但仍可通过代码切换状态（比如从主题进入时）
+  $("q").placeholder=PH[mode];
+  updTp();render();
+}
+$("q").placeholder=PH[mode];
+$("send").onclick=ask;
+$("q").oninput=function(){this.style.height="auto";this.style.height=Math.min(this.scrollHeight,120)+"px"};
 $("bNew").onclick=function(){if(msgs.length&&!confirm("清空所有对话？收藏的句子不会删除，但“溯源”将无法回到原来的消息。"))return;stopLoop();msgs=[];sv("msgs",msgs);render()};
 
 function sheet(en,zh){$("sheet").innerHTML='<div class="en">'+esc(en)+'</div>'+(zh?'<div class="zh">'+esc(zh)+'</div>':'')+'<div class="acts"><button id="aS">🔊 朗读</button><button id="aF">'+(isFav(en)?'★ 取消收藏':'☆ 收藏')+'</button><button id="aC">复制</button></div>';$("mask").classList.remove("hide");$("aS").onclick=function(){say(en)};$("aF").onclick=function(){favs=isFav(en)?favs.filter(function(f){return f.en!==en}):[{en:en,zh:zh}].concat(favs);sv("favs",favs);$("mask").classList.add("hide");if(!$("col").classList.contains("hide"))list()};$("aC").onclick=function(){try{navigator.clipboard.writeText(en)}catch(e){};$("mask").classList.add("hide")}}
@@ -435,8 +492,6 @@ $("cbox").addEventListener("touchmove",function(e){if(!cs)return;var t=e.touches
 function cEnd(){if(!cs)return;var c=cs,b=$("cbox");cs=null;if(!c.on)return;b.dataset.swiped=Date.now();if(Math.abs(c.dx)>90){b.style.transition="transform .18s,opacity .18s";b.style.transform="translateX("+(c.dx>0?500:-500)+"px)";b.style.opacity="0";setTimeout(function(){if(c.dx<0&&cur)deck.push(cur);b.style.transition="none";b.style.transform="";b.style.opacity="";draw()},180)}else{b.style.transition="transform .2s";b.style.transform=""}}
 $("cbox").addEventListener("touchend",cEnd);$("cbox").addEventListener("touchcancel",cEnd);
 
-
-/* IndexedDB：把本地视频本体存起来，语料库点开可自动播放 */
 var IDB_NAME="kouyu_vid", IDB_STORE="videos", IDB_VER=1;
 function idbOpen(){
   return new Promise(function(res,rej){
@@ -487,14 +542,12 @@ function idbDel(key){
 async function saveVideoBlob(key, file){
   if(!file) return false;
   if(file.size > 120*1024*1024){
-    console.warn("video too large for IDB", file.size);
     return false;
   }
   try{
     await idbPut(key, file, {name:file.name, size:file.size, type:file.type||"video/mp4"});
     return true;
   }catch(e){
-    console.warn("idb put fail", e);
     try{
       var db=await idbOpen();
       var tx=db.transaction(IDB_STORE,"readwrite");
