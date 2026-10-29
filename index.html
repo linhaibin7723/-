@@ -135,11 +135,44 @@ header{background:var(--glass);border-bottom:.5px solid var(--bd)}
 .s.now { background: transparent !important; }
 .s.now .ai-card { border-color: var(--acc); box-shadow: 0 4px 16px rgba(0,122,255,0.1); }
 
-.tip-box { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 24px 16px; color: var(--mut); font-size: 13px; text-align: center; }
-.tip-icon { font-size: 16px; }
 
 .ai-note { font-size: 14px; color: var(--mut); margin-top: 8px; padding: 0 4px; line-height: 1.5; }
 .extra-row { margin-top: 12px; }
+
+/* ===== v3：头部/底部统一、弹窗 ===== */
+body{padding-bottom:env(safe-area-inset-bottom,0px)}
+body > header{padding:14px 56px 8px;background:transparent;border-bottom:0;-webkit-backdrop-filter:none;backdrop-filter:none}
+body > header b{font-size:21px;font-weight:700;letter-spacing:.5px}
+.ov > header{justify-content:space-between;padding:10px 8px;background:transparent;border-bottom:0;-webkit-backdrop-filter:none;backdrop-filter:none}
+.hr{position:absolute;right:10px;top:50%;transform:translateY(-42%)}
+.hbtn{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--mut)}
+.hbtn:active{background:var(--hl)}.hbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#chat{padding-bottom:20px;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 16px,#000 calc(100% - 16px),transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 16px,#000 calc(100% - 16px),transparent 100%)}
+.dock{flex:none;background:var(--bg);position:relative;z-index:5}
+.inp{-webkit-backdrop-filter:none;backdrop-filter:none;padding:6px 14px 8px}
+textarea{border:.5px solid var(--bd);border-radius:24px;padding:12px 18px;min-height:46px}
+#send{width:46px;height:46px}
+.tab-bar{position:static;transform:none;width:auto;max-width:none;background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;border:0;border-radius:0;box-shadow:none;padding:4px 10px 8px}
+.tab-item{gap:3px;-webkit-tap-highlight-color:transparent}
+.tab-icon{width:58px;height:30px;border-radius:15px;font-size:0}
+.tab-icon svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab-item.on .tab-icon{background:var(--hl)}.tab-item.on{font-weight:600}
+.ai-card{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;padding:16px 18px}
+.ai-card:active{transform:scale(.985)}
+.ai-card .en{font-size:20px;font-weight:700;line-height:1.4;color:var(--fg)}
+.ai-card .en .w{border-bottom:0}
+.ai-card .zh{color:var(--mut);font-size:15px;line-height:1.5}
+.ai-card.faved::after{content:"★";position:absolute;top:10px;right:14px;color:#ff9f0a;font-size:14px}
+.ai-avatar svg{display:block}
+.ai-more{margin-left:48px}.ai-more:empty{display:none}
+.ai-more .ai-note{padding:0;margin:2px 0 0}.ai-more p{margin:6px 0}
+.lb{font-size:13px;color:var(--mut);margin:14px 0 4px;font-weight:500}
+.pop .hlb{background:none;color:var(--fg);padding:0;margin:0;font-size:24px;font-weight:700;display:block;line-height:1.4;border-radius:0}
+.pop .prow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px}
+.pop .prow button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:13px 4px;border-radius:16px;background:rgba(127,127,135,.14);font-size:13px;font-weight:500;color:var(--fg)}
+.pop .prow button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pop #psp{color:var(--acc);background:var(--hl)}
+.pop #pfv.on{color:#ff9f0a}.pop #pfv.on svg{fill:currentColor}
 </style>
 </head>
 <body>
@@ -147,22 +180,21 @@ header{background:var(--glass);border-bottom:.5px solid var(--bd)}
   <button class="ib" id="bCol" aria-label="收藏">⭐</button>
   <b>口语句库</b>
   <span><button class="ib" id="bSet" aria-label="朗读设置">⚙️</button><button class="ib" id="bVid" aria-label="视频字幕">🎬</button><button class="ib" id="bNew" aria-label="新对话">🗑</button></span>
+  <div class="hr"><button class="hbtn" id="hNew" aria-label="新对话"><svg viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button></div>
 </header>
 <div id="chat"></div>
 
-<!-- 去掉了这里的 .modes 模式切换栏 -->
-
-<div class="inp">
-  <textarea id="q" rows="1" placeholder="用中文问怎么说，或贴一句英文…"></textarea>
-  <button id="send" aria-label="发送">➤</button>
-</div>
-
-<!-- 底部悬浮 TabBar -->
-<div class="tab-bar">
-  <div class="tab-item on" id="tabChat"><div class="tab-icon">💬</div><span>练</span></div>
-  <div class="tab-item" id="tabLib"><div class="tab-icon">📖</div><span>库</span></div>
-  <div class="tab-item" id="tabVid"><div class="tab-icon">👁️</div><span>看</span></div>
-  <div class="tab-item" id="tabMe"><div class="tab-icon">👤</div><span>我</span></div>
+<div class="dock">
+  <div class="inp">
+    <textarea id="q" rows="1" placeholder="用中文问怎么说，或贴一句英文…"></textarea>
+    <button id="send" aria-label="发送">➤</button>
+  </div>
+  <nav class="tab-bar">
+    <div class="tab-item on" id="tabChat"><div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><span>练</span></div>
+    <div class="tab-item" id="tabLib"><div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><span>库</span></div>
+    <div class="tab-item" id="tabVid"><div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div><span>看</span></div>
+    <div class="tab-item" id="tabMe"><div class="tab-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div><span>我</span></div>
+  </nav>
 </div>
 
 <div class="ov hide" id="col">
@@ -263,7 +295,7 @@ function hlText(t){t=String(t==null?"":t);var out="",last=0,m,re=/[A-Za-z][A-Za-
 function aiHtml(r,md,mid){
   var h='<div class="a" data-mid="'+esc(mid||"")+'">';
   
-  var mainCard = '<div class="ai-chat-card"><div class="ai-avatar">🤖</div><div class="ai-card"><div class="tx"><div class="en">'+wordsHtml(r.en)+'</div>'+(r.zh?'<div class="divider"></div><div class="zh">'+esc(r.zh)+'</div>':'')+'<div class="read-btn-row"><button class="read-btn" data-en="'+esc(r.en)+'">🔊 朗读</button></div></div></div></div>';
+  var mainCard = '<div class="ai-chat-card"><div class="ai-avatar"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="4"/><path d="M12 8V5M9.5 4.5h5"/><circle cx="9" cy="13.5" r="1" fill="#fff"/><circle cx="15" cy="13.5" r="1" fill="#fff"/></svg></div><div class="ai-card'+(isFav(r.en)?' faved':'')+'" data-en="'+esc(r.en)+'" data-zh="'+esc(r.zh||"")+'" data-mid="'+esc(mid||"")+'"><div class="en">'+wordsHtml(r.en)+'</div>'+(r.zh?'<div class="divider"></div><div class="zh">'+esc(r.zh)+'</div>':'')+'</div></div>';
 
   if(md==="chat"){
     if(r.fix&&r.fix.en)h+='<div class="lb">更自然的说法</div><p>'+pill(r.fix.en,r.fix.note)+'</p>'+(r.fix.note?'<p class="zt">'+hlText(r.fix.note)+'</p>':'');
@@ -273,13 +305,13 @@ function aiHtml(r,md,mid){
   if(md==="mean")h+='<div class="lb">原句</div>';
   if(r.mine&&r.mine.en)h+='<div class="lb">你的原句</div><p>'+pill(r.mine.en,r.mine.zh)+'</p><p class="zt">'+esc(r.mine.zh)+'</p><div class="lb">更地道的说法</div>';
   
-  h += mainCard;
+  h += mainCard + '<div class="ai-more">';
   
   if(r.note)h+='<div class="ai-note">'+hlText(r.note)+'</div>';
   if(r.vocab&&r.vocab.length)h+='<div class="lb">关键词</div>'+r.vocab.map(function(v){return '<p>'+pill(v.w,v.m)+' '+esc(v.m)+'</p>'}).join("");
   if(r.examples&&r.examples.length)h+='<div class="lb">例句</div>'+r.examples.map(function(x){return '<p>'+pill(x.en,x.zh)+'<br><span class="zt">'+esc(x.zh)+'</span></p>'}).join("");
   if(r.replies&&r.replies.length)h+='<div class="lb">别人这么说，你可以这么回</div>'+r.replies.map(function(x){return '<p>'+pill(x,"")+'</p>'}).join("");
-  return h+'</div>';
+  return h+'</div></div>';
 }
 
 var sw=null;function swAW(el){var a=el.parentNode.querySelector(".a2");return a?a.children.length*76:0}
@@ -354,7 +386,8 @@ function showDict(w,r){var box=$("dict");if(!box)return;box.innerHTML='<b>'+esc(
 function lookup(el,ctx){var w=el.textContent,box=$("dict");Array.prototype.forEach.call($("pop").querySelectorAll(".w"),function(x){x.classList.toggle("on",x===el)});var k=w.toLowerCase()+"|"+ctx.toLowerCase().slice(0,80);if(dict[k]){showDict(w,dict[k]);return}if(!cfg.key){box.textContent="请先点右上角 ⚙️ 填好 API Key";return}box.textContent="查询中…";sample.json(`你是英汉词典。词：${w}。所在句子：${ctx}。只返回 JSON，不要其他文字：{"w":"词的原形","ipa":"美式音标","pos":"词性缩写，如 n. v. adj.","zh":"这个词在这句话里的中文意思，简短","more":"其他常见意思，简短，没有就留空"}`).then(function(r){dict[k]=r;try{localStorage.setItem("dict",JSON.stringify(dict))}catch(e){};if(el.classList.contains("on"))showDict(w,r)}).catch(function(e){if(el.classList.contains("on"))box.textContent="查询失败："+((e&&e.detail)||"请再试一次")})}
 var dict={};try{dict=JSON.parse(localStorage.getItem("dict")||"{}")}catch(e){}
 
-function popup(en,zh,mid,idx){var f=isFav(en);$("pop").innerHTML='<div><span class="hlb">'+wordsHtml(en)+'</span></div>'+(zh?'<div class="zt" style="margin-top:10px">'+esc(zh)+'</div>':'')+'<div class="dict" id="dict"></div><div class="prow"><button id="pcp" aria-label="复制">📋</button><button id="psp">▶ 朗读</button><button id="pfv" class="pfav">'+(f?'★ 已收藏':'加入收藏')+'</button></div>';$("pmask").classList.remove("hide");$("pop").onclick=function(e){var w=e.target.closest&&e.target.closest(".w");if(w)lookup(w,en)};if(/^[A-Za-z'’\-]+$/.test(en.trim())){var w0=$("pop").querySelector(".w");if(w0)lookup(w0,en)}if(idx!=null&&idx>=0){var ws=$("pop").querySelectorAll(".w");if(ws[idx])lookup(ws[idx],en)}$("psp").onclick=function(){say(en)};$("pcp").onclick=function(){try{navigator.clipboard.writeText(en)}catch(e){};this.textContent="✓"};$("pfv").onclick=function(){favs=isFav(en)?favs.filter(function(x){return x.en!==en}):[{en:en,zh:zh||"",mid:mid||""}].concat(favs);sv("favs",favs);this.textContent=isFav(en)?"★ 已收藏":"加入收藏"}}
+var PIC={copy:'<svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',play:'<svg viewBox="0 0 24 24"><path d="M3 10v4h4l5 4V6L7 10z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>',star:'<svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>'};
+function popup(en,zh,mid,idx){var f=isFav(en);$("pop").innerHTML='<div><span class="hlb">'+wordsHtml(en)+'</span></div>'+(zh?'<div class="zt" style="margin-top:10px">'+esc(zh)+'</div>':'')+'<div class="dict" id="dict"></div><div class="prow"><button id="pcp">'+PIC.copy+'<span>复制</span></button><button id="psp">'+PIC.play+'<span>播放</span></button><button id="pfv" class="pfav'+(f?' on':'')+'">'+PIC.star+'<span>'+(f?'已收藏':'收藏')+'</span></button></div>';$("pmask").classList.remove("hide");$("pop").onclick=function(e){var w=e.target.closest&&e.target.closest(".w");if(w)lookup(w,en)};if(/^[A-Za-z'’\-]+$/.test(en.trim())){var w0=$("pop").querySelector(".w");if(w0)lookup(w0,en)}if(idx!=null&&idx>=0){var ws=$("pop").querySelectorAll(".w");if(ws[idx])lookup(ws[idx],en)}$("psp").onclick=function(){say(en)};$("pcp").onclick=function(){copyTxt(en);this.lastElementChild.textContent="已复制";toast("已复制",1000)};$("pfv").onclick=function(){favs=isFav(en)?favs.filter(function(x){return x.en!==en}):[{en:en,zh:zh||"",mid:mid||""}].concat(favs);sv("favs",favs);var on=isFav(en);this.classList.toggle("on",on);this.lastElementChild.textContent=on?"已收藏":"收藏";markFav(en,on)}}
 $("pmask").onclick=function(e){if(e.target===this){this.classList.add("hide");stopLoop()}};
 document.addEventListener("click",function(e){var h=e.target.closest&&e.target.closest(".hl");if(h){var bx=h.closest("[data-mid]");popup(h.dataset.en,h.dataset.zh,bx&&bx.dataset.mid)}});
 
@@ -366,9 +399,6 @@ function render(){
     msgs.forEach(function(m){if(m.role==="s")h+='<div class="sys">—— 主题：'+esc(m.t)+' ——</div>';else if(m.role==="u")h+='<div class="u" data-mid="'+esc(m.id||"")+'">'+esc(m.t)+'</div>';else if(m.err)h+='<div class="a err">'+esc(m.err)+'</div>';else h+=aiHtml(m.d,m.mode||"say",m.id)});
   }
   
-  if(msgs.length && !busy) {
-    h += '<div class="tip-box"><span class="tip-icon">💡</span><span class="tip-text">Tip: Try repeating the sentence out loud to practice your speaking.</span></div>';
-  }
 
   if(busy)h+='<div class="th">思考中…</div>';
   c.innerHTML=h;c.scrollTop=c.scrollHeight;
@@ -1084,6 +1114,11 @@ function vis(id){var e=$(id);return !!e&&!e.classList.contains("hide")}
 function closeTop(){if(vis("pmask")){$("pmask").classList.add("hide");stopLoop();return true}if(vis("mask")){$("mask").classList.add("hide");render();return true}if(vis("card")){$("cBack").click();return true}if(vis("col")){$("bBack").click();return true}if(vis("vid")){$("bVBack").click();return true}return false}
 function pushTrap(){try{history.pushState({r:1},"")}catch(e){}}
 if(AppP&&AppP.addListener){AppP.addListener("backButton",function(){if(closeTop())return;if(exitArmed){AppP.exitApp();return}exitArmed=true;toast("再按一次退出应用",1800);clearTimeout(exitT);exitT=setTimeout(function(){exitArmed=false},2000)})}else{document.addEventListener("pointerdown",function(){if(!trapOn){trapOn=true;pushTrap()}},true);document.addEventListener("touchstart",function(){if(exitArmed){exitArmed=false;clearTimeout(exitT);pushTrap()}},true);window.addEventListener("popstate",function(){if(!trapOn)return;if(closeTop()){pushTrap();return}exitArmed=true;toast("再按一次退出应用",1800);clearTimeout(exitT);exitT=setTimeout(function(){if(exitArmed){exitArmed=false;pushTrap()}},2000)})}
+function fbCopy(t){var a=document.createElement("textarea");a.value=t;a.style.cssText="position:fixed;opacity:0";document.body.appendChild(a);a.select();try{document.execCommand("copy")}catch(e){}a.remove()}
+function copyTxt(t){try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).catch(function(){fbCopy(t)});return}}catch(e){}fbCopy(t)}
+function markFav(en,on){Array.prototype.forEach.call(document.querySelectorAll(".ai-card[data-en]"),function(c){if(c.dataset.en===en)c.classList.toggle("faved",!!on)})}
+$("chat").addEventListener("click",function(e){var c=e.target.closest&&e.target.closest(".ai-card[data-en]");if(!c)return;var w=e.target.closest(".w"),ws=c.querySelectorAll(".en .w");popup(c.dataset.en,c.dataset.zh,c.dataset.mid||"",w?Array.prototype.indexOf.call(ws,w):-1)});
+$("hNew").onclick=function(){$("bNew").click()};
 updTp();render();
 </script>
 </body>
