@@ -11,29 +11,30 @@
 :root[data-theme="dark"]{--bg:#000;--fg:#f5f5f7;--mut:#98989f;--card:rgba(44,44,48,0.65);--acc:#0a84ff;--accfg:#fff;--bd:rgba(255,255,255,.13);--hl:rgba(10,132,255,.24);--glass:rgba(28,28,30,.7);--bl1:rgba(10,90,200,.35);color-scheme:dark}
 *{box-sizing:border-box}
 html{height:100%;margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,"PingFang SC","Noto Sans SC",system-ui,sans-serif}
-body{display:flex;flex-direction:column;height:100%;margin:0 auto;max-width:680px;background:transparent;padding-top:env(safe-area-inset-top,20px);padding-bottom:85px;overflow:hidden}
-button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
-/* 顶部沉浸式导航 */
-header{display:flex;align-items:center;justify-content:center;padding:16px 8px;position:relative;background:transparent;border-bottom:none}
-header b{font-size:18px;font-weight:600;letter-spacing:.5px}
-body > header > button, body > header > span { position: absolute; top: 16px; display: flex; gap: 8px; }
+body{display:flex;flex-direction:column;height:100%;margin:0 auto;max-width:680px;background:transparent;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+
+/* 沉浸式顶部 */
+header{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top, 20px) + 12px) 16px 12px;background:linear-gradient(to bottom, var(--bg) 40%, transparent);pointer-events:none;}
+header b{font-size:18px;font-weight:600;letter-spacing:.5px;pointer-events:auto;}
+body > header > button, body > header > span { position: absolute; top: calc(env(safe-area-inset-top, 20px) + 12px); display: flex; gap: 12px; pointer-events: auto;}
 body > header > button { left: 16px; }
 body > header > span { right: 16px; }
 
-#chat{flex:1;overflow-y:auto;padding:8px 16px 0}
+#chat{flex:1;overflow-y:auto;padding:80px 16px 120px;}
 /* 用户气泡 */
 .u{background:var(--acc);color:var(--accfg);padding:12px 18px;border-radius:20px 20px 4px 20px;margin:16px 0 16px auto;max-width:85%;width:fit-content;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,122,255,0.15)}
 
-/* 底部极简 TabBar */
-.tab-bar{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);width:100%;max-width:680px;display:flex;justify-content:space-around;padding:10px 0 0;z-index:10;background:transparent;pointer-events:none;}
-.tab-item{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--mut);font-size:11px;font-weight:500;cursor:pointer;flex:1;transition:all .2s;opacity:0.6;pointer-events:auto;}
+/* 极简无边框底栏 */
+.tab-bar{position:fixed;bottom:0;left:0;right:0;width:100%;max-width:680px;margin:0 auto;display:flex;justify-content:space-around;padding:12px 0 calc(env(safe-area-inset-bottom, 12px) + 12px);z-index:100;background:linear-gradient(to top, var(--bg) 50%, transparent);border:none;box-shadow:none;}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--mut);font-size:11px;font-weight:500;cursor:pointer;flex:1;transition:all .2s;opacity:0.6;}
 .tab-item.on{color:var(--acc);opacity:1;}
-.tab-icon{width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:2px;}
+.tab-icon{width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:20px;}
 
 /* 输入区 */
-.inp{display:flex;gap:8px;align-items:flex-end;padding:8px 16px 16px;background:transparent;border-top:none;position:relative;z-index:5}
-textarea{flex:1;max-height:120px;min-height:44px;padding:12px 18px;border-radius:22px;border:none;background:var(--card);color:var(--fg);font:inherit;resize:none;box-shadow:0 4px 16px rgba(0,0,0,0.06)}
-#send{width:44px;height:44px;border-radius:50%;background:var(--acc);color:var(--accfg);font-size:18px;flex:none;box-shadow:0 4px 12px rgba(0,122,255,0.2)}
+.inp{position:fixed;bottom:calc(env(safe-area-inset-bottom, 12px) + 60px);left:0;right:0;max-width:680px;margin:0 auto;display:flex;gap:8px;align-items:flex-end;padding:0 16px 8px;background:transparent;border-top:none;z-index:99;}
+textarea{flex:1;max-height:120px;min-height:44px;padding:12px 18px;border-radius:22px;border:none;background:var(--card);color:var(--fg);font:inherit;resize:none;box-shadow:0 4px 16px rgba(0,0,0,0.08);}
+#send{width:44px;height:44px;border-radius:50%;background:var(--acc);color:var(--accfg);font-size:18px;flex:none;box-shadow:0 4px 12px rgba(0,122,255,0.2);display:flex;align-items:center;justify-content:center;}
 #send:disabled{opacity:.4}
 
 /* 弹层基础 */
@@ -45,9 +46,13 @@ textarea{flex:1;max-height:120px;min-height:44px;padding:12px 18px;border-radius
 .lp{display:flex;gap:10px;padding:10px 12px;border-top:1px solid var(--bd)}
 .lp button{flex:1;padding:11px;border-radius:12px;background:var(--acc);color:var(--accfg);font-weight:600}
 .lp button.g{background:var(--card);color:var(--fg)}
-.mask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--glass);width:100%;max-width:680px;border-radius:22px 22px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));border-top:.5px solid var(--bd);box-shadow:0 -12px 40px rgba(0,0,0,.16);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);}
-.sheet .en{font-size:22px;font-weight:700;color:var(--fg);line-height:1.4;margin-bottom:8px;}.acts{display:flex;gap:10px;margin-top:24px}.acts button{flex:1;padding:14px 4px;border-radius:14px;background:var(--card);font-size:16px;font-weight:600;}
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30;display:flex;align-items:flex-end;justify-content:center; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);}
+.sheet{background:var(--glass);width:100%;max-width:680px;border-radius:22px 22px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom,0px));border-top:.5px solid var(--bd);box-shadow:0 -12px 40px rgba(0,0,0,.16);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);}
+.sheet-en{font-size:22px;font-weight:700;color:var(--fg);line-height:1.4;margin-bottom:8px;}
+.sheet-zh{font-size:15px;color:var(--mut);margin-bottom:20px;line-height:1.5;}
+.acts{display:flex;gap:10px;margin-top:24px}
+.acts button{flex:1;padding:14px 4px;border-radius:14px;background:var(--card);font-size:16px;font-weight:600;color:var(--fg);border:.5px solid var(--bd);transition:all 0.2s;}
+.acts button:active{background:var(--hl);color:var(--acc);}
 .vv{width:100%;max-height:34vh;background:#000}.vb{display:flex;gap:8px;padding:8px 12px;flex-wrap:wrap}
 .vb .tab{cursor:pointer}.vst{padding:0 14px 6px;color:var(--mut);font-size:13px;min-height:22px}
 #vl{flex:1;overflow-y:auto;padding:0 14px}
@@ -55,13 +60,12 @@ textarea{flex:1;max-height:120px;min-height:44px;padding:12px 18px;border-radius
 .acts button.on{background:var(--acc);color:var(--accfg)}
 :root{--fx:radial-gradient(80% 50% at 50% -10%,var(--bl1),transparent 70%)}
 html{background:var(--fx),var(--bg);background-attachment:fixed}.ov{background:var(--fx),var(--bg)}
-.s,header,.inp,.chip,.tab,.sheet,.lp{-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
 .mask{background:rgba(0,0,0,.28)}.fb.on{color:#ff9f0a}
 .hl,.hlb{background:var(--hl);color:var(--acc);padding:2px 11px;border-radius:13px;font-weight:600;display:inline-block;line-height:1.5;margin:1px 2px;cursor:pointer}
 .hlb{cursor:default;font-size:24px;padding:7px 18px;border-radius:18px}.hl:active{opacity:.6}
 .a p{margin:7px 0}.big{font-size:20px}.zt{color:var(--mut);font-size:15px}
 .mask.c{align-items:center;padding:24px}.pop{width:100%;max-width:420px;background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(24px);backdrop-filter:saturate(180%) blur(24px);border:.5px solid var(--bd);border-radius:22px;padding:22px 20px 16px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
-.prow{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:20px}.prow button{padding:10px 14px;border-radius:999px;font-size:15px}
+.prow{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:20px}.prow button{padding:10px 14px;border-radius:999px;font-size:15px;background:var(--card);color:var(--fg)}
 #psp{color:var(--acc);font-weight:600}.pfav{background:var(--card);font-weight:600}
 .w{border-radius:8px;cursor:pointer}.w.on{background:var(--acc);color:var(--accfg)}
 .dict{margin-top:14px;padding:10px 12px;border-radius:14px;background:var(--card);font-size:15px;min-height:44px}
@@ -116,30 +120,24 @@ html{background:var(--fx),var(--bg);background-attachment:fixed}.ov{background:v
 /* ================= 聊天卡片样式 ================= */
 .ai-chat-card { display: flex; gap: 12px; align-items: flex-start; margin: 12px 0; width: 100%; }
 .ai-avatar { width: 36px; height: 36px; background: var(--acc); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; flex-shrink: 0; }
-.ai-card { background: var(--card); border-radius: 18px; padding: 16px; flex: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: .5px solid var(--bd); position: relative; min-width: 0; }
+.ai-card { background: var(--card); border-radius: 18px; padding: 16px; flex: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: .5px solid var(--bd); position: relative; min-width: 0; transition: all 0.2s; }
+.ai-card:active { transform: scale(0.98); opacity: 0.9; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ai-card { box-shadow: 0 4px 12px rgba(0,0,0,0.2); } }
 
 .s { background: transparent !important; padding: 0 !important; margin: 0 !important; display: flex; gap: 12px; border: none !important; box-shadow: none !important; }
 .s .tx { flex: 1; min-width: 0; }
 .s .en { font-size: 16px; font-weight: 600; color: var(--fg); line-height: 1.5; margin-bottom: 0; }
-.s .en .w { border-bottom: 1px dashed rgba(140,140,150,0.4); }
+.s .en .w { border-bottom: 1px dashed rgba(140,140,150,0.4); padding: 0 1px; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .s .en .w { border-bottom-color: rgba(255,255,255,0.3); } }
 .divider { height: 1px; background: rgba(0,0,0,0.06); margin: 12px 0; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .divider { background: rgba(255,255,255,0.1); } }
 .s .zh { color: var(--mut); font-size: 15px; line-height: 1.5; }
-
-.s.now { background: transparent !important; }
-.s.now .ai-card { border-color: var(--acc); box-shadow: 0 4px 16px rgba(0,122,255,0.1); }
 
 .tip-box { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 24px 16px; color: var(--mut); font-size: 13px; text-align: center; }
 .tip-icon { font-size: 16px; }
 
 .ai-note { font-size: 14px; color: var(--mut); margin-top: 8px; padding: 0 4px; line-height: 1.5; }
 .extra-row { margin-top: 12px; }
-
-/* 弹窗内元素 */
-.sheet-en { font-size: 20px; font-weight: 700; color: var(--fg); margin-bottom: 8px; line-height: 1.4; }
-.sheet-zh { font-size: 15px; color: var(--mut); margin-bottom: 20px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -155,7 +153,7 @@ html{background:var(--fx),var(--bg);background-attachment:fixed}.ov{background:v
   <button id="send" aria-label="发送">➤</button>
 </div>
 
-<!-- 极简 TabBar -->
+<!-- 极简悬浮底栏 -->
 <div class="tab-bar">
   <div class="tab-item on" id="tabChat"><div class="tab-icon">💬</div><span>练</span></div>
   <div class="tab-item" id="tabLib"><div class="tab-icon">📖</div><span>库</span></div>
@@ -248,7 +246,7 @@ function say(t,done){
 function stopLoop(){looping=false;spk++;var T=TTSN();try{if(T)T.stop()}catch(e){};try{speechSynthesis.cancel()}catch(e){};$("loop").textContent="🔁 循环播放"}
 function isFav(en){return favs.some(function(f){return f.en===en})}
 
-// 渲染卡片 (去掉了内嵌的 read-btn)
+// 渲染卡片
 function S(en,zh,mid,o){
   o=o||{};
   var extraHtml = o.extra ? '<div class="extra-row">' + o.extra + '</div>' : '';
@@ -280,7 +278,7 @@ function aiHtml(r,md,mid){
   return h+'</div>';
 }
 
-// 弹窗操作面板
+// 弹窗操作面板（彻底去除了内嵌按钮）
 function openSheet(en, zh, mid) {
   var f = isFav(en);
   $("sheet").innerHTML = '<div class="sheet-en">' + esc(en) + '</div>' + (zh ? '<div class="sheet-zh">' + esc(zh) + '</div>' : '') + '<div class="acts"><button id="sPlay" style="background:var(--hl);color:var(--acc);">🔊 朗读</button><button id="sFav">' + (f ? '★ 取消收藏' : '☆ 收藏') + '</button></div>';
@@ -320,7 +318,7 @@ function swEnd(){if(!sw)return;var c=sw;sw=null;if(!c.moved)return;c.el.dataset.
 document.addEventListener("touchend",swEnd);document.addEventListener("touchcancel",swEnd);
 
 document.addEventListener("click",function(e){
-  // 1. 查词逻辑 (点击句子里的单词)
+  // 1. 查词逻辑 (优先响应点击具体单词)
   var el=e.target.closest&&e.target.closest("#lst .w,#vl .w,#chat .w");
   if(el){
     var s=el.closest(".s"),ws=s.querySelectorAll(".en .w");
@@ -339,7 +337,7 @@ document.addEventListener("click",function(e){
     list();toast("已删除",1200);return;
   }
 
-  // 3. 点击卡片出弹窗
+  // 3. 点击卡片空白出弹窗
   var s = e.target.closest && e.target.closest("#chat .s, #lst .s");
   if(s){
     if (Date.now() - (+s.dataset.swiped || 0) < 400) return; // 防止滑动误触
