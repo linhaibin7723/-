@@ -737,7 +737,10 @@ window.delHis=function(key){
   idbDel(key);
 };
 
-var currentYt = null;
+var currentYt = null, ytDoneId = "";
+function ytIsFav(id){try{return JSON.parse(localStorage.getItem("ytLib")||"[]").some(function(x){return x.id===id})}catch(e){return false}}
+function ytSaveSubs(id){if(!id||!ytIsFav(id)||ytDoneId!==id||!vsubs.length)return;try{localStorage.setItem("ytSubs_"+id,JSON.stringify({v:1,subs:vsubs.map(function(c){return {t:c.t,e:c.e,en:c.en,zh:c.zh||""}})}))}catch(e){toast("本地空间不足，没能保存字幕",3000)}}
+function ytGetSubs(id){try{var o=JSON.parse(localStorage.getItem("ytSubs_"+id)||"null");return(o&&o.subs&&o.subs.length)?o.subs:null}catch(e){return null}}
 function updateYtFavBtn(){
   if(!currentYt){ $("bVidFav").style.display = "none"; return; }
   $("bVidFav").style.display = "inline-block";
@@ -751,12 +754,14 @@ $("bVidFav").onclick = function(){
   var idx = ytLib.findIndex(function(x){return x.id === currentYt.id});
   if(idx >= 0) {
     ytLib.splice(idx, 1);
+    try{localStorage.removeItem("ytSubs_"+currentYt.id)}catch(e){}
     toast("已取消收藏");
   } else {
     ytLib.unshift({id: currentYt.id, title: currentYt.title, date: new Date().toLocaleDateString()});
     toast("已加入收藏");
   }
   localStorage.setItem("ytLib", JSON.stringify(ytLib));
+  ytSaveSubs(currentYt.id);
   updateYtFavBtn();
 };
 
@@ -1090,6 +1095,19 @@ async function ytLoad(id, title){
     }
   }, 300);
 
+  ytDoneId = "";
+  var cachedSubs = ytIsFav(id) ? ytGetSubs(id) : null;
+  if(cachedSubs){
+    addSubs(cachedSubs);
+    ytDoneId = id;
+    if(cfg.key && vsubs.some(function(c){return !c.zh})){
+      try{ await ytTranslate(id); }catch(e){}
+      if(id !== ytId) return;
+      ytSaveSubs(id);
+    }
+    vs("字幕已就绪，共 " + vsubs.length + " 句（已保存在本地）。点句子跳转，右滑收藏，点单词查词典。");
+    return;
+  }
   if(!cfg.key){
     vs("视频已加载。先点右上角 ⚙️ 填好 AI Key，才能翻译字幕。");
   }
@@ -1108,6 +1126,7 @@ async function ytLoad(id, title){
     }
     if(ytAsr) await ytRegroup(id);
     await ytTranslate(id);
+    if(id === ytId){ ytDoneId = id; ytSaveSubs(id); }
   }catch(e){
     if(id === ytId) vs("获取字幕失败：" + ((e && e.detail) || "未知原因") + "。可以点“导入字幕”手动导入。");
   }
