@@ -1034,7 +1034,7 @@ while(p<N&&id===ytId){
  var chunk=base.slice(p,p+B),last=p+B>=N,items=null,ctx=base.slice(Math.max(0,p-2),p).map(function(c){return c.en}).join(" ");
  vs("AI 整理断句… "+Math.min(p+B,N)+" / "+N+"（可以先看）");
  for(var at=0;at<2&&!items;at++){
-  try{var r=await sample.json("下面是视频里按时间顺序的英文字幕片段（YouTube 自动字幕，没有标点，片段切分很随意，经常从一句话中间断开）。gap 是和上一片段之间的停顿秒数。对每个片段返回两项：1）en：加上标点和大小写后的文字。只在句子真正结束的地方加句号/问号，从一句话中间断开的片段不要加句号，开头也不要大写；修正明显听错的词，保留口语和俚语，不要增删内容；en 只能包含该片段自己的词，不要把相邻片段的内容并进来，也不能留空。2）nw：这个片段是否开启了新的一段发言（true/false）。换了说话人，或者上一句话已经说完、这里是新的一句，就是 true；只是上一句话的延续就是 false。对话里一问一答要根据内容和停顿判断是不是换人了。只返回 JSON 数组，条数必须和输入一致：[{\"i\":0,\"nw\":true,\"en\":\"...\"}]。\n上文（仅供参考，不用返回）："+ctx+"\n"+JSON.stringify(chunk.map(function(c,k){var pv=k?chunk[k-1]:base[p-1];return {i:k,gap:pv?Math.max(0,Math.round((c.t-pv.e)*10)/10):0,en:c.en}})));items=ytCheckItems(r,chunk.length)}catch(e){if(e&&e.code==="not_granted")throw e}
+  try{var r=await sample.json("下面是视频里按时间顺序的英文字幕片段（YouTube 自动字幕，没有标点，片段切分很随意，经常从一句话中间断开）。gap 是和上一片段之间的停顿秒数。对每个片段返回两项：1）en：加上标点和大小写后的文字。只在句子真正结束的地方加句号/问号，从一句话中间断开的片段不要加句号，开头也不要大写；修正明显听错的词，保留口语和俚语，不要增删内容；文字里的 (bleep) 是被 YouTube 屏蔽掉的脏话，请根据上下文推测最可能的原词填回去（比如 fuck、shit、hell、damn），实在拿不准就保留 (bleep)；en 只能包含该片段自己的词，不要把相邻片段的内容并进来，也不能留空。2）nw：这个片段是否开启了新的一段发言（true/false）。换了说话人，或者上一句话已经说完、这里是新的一句，就是 true；只是上一句话的延续就是 false。对话里一问一答要根据内容和停顿判断是不是换人了。只返回 JSON 数组，条数必须和输入一致：[{\"i\":0,\"nw\":true,\"en\":\"...\"}]。\n上文（仅供参考，不用返回）："+ctx+"\n"+JSON.stringify(chunk.map(function(c,k){var pv=k?chunk[k-1]:base[p-1];return {i:k,gap:pv?Math.max(0,Math.round((c.t-pv.e)*10)/10):0,en:c.en}})));items=ytCheckItems(r,chunk.length)}catch(e){if(e&&e.code==="not_granted")throw e}
  }
  if(!items){bad++;items=chunk.map(function(){return {en:"",nw:null}})}
  var cut=chunk.length;
