@@ -173,6 +173,21 @@ textarea{border:.5px solid var(--bd);border-radius:24px;padding:12px 18px;min-he
 .pop .prow button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .pop #psp{color:var(--acc);background:var(--hl)}
 .pop #pfv.on{color:#ff9f0a}.pop #pfv.on svg{fill:currentColor}
+.cwrap{flex:1;display:flex;align-items:center;justify-content:center;padding:20px 18px;perspective:900px;overflow:hidden}
+.cardbox{width:100%;max-width:420px;min-height:340px;box-sizing:border-box;background:var(--card);border:.5px solid var(--bd);border-radius:28px;padding:28px 24px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:16px;box-shadow:0 14px 40px rgba(0,0,0,.14);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);touch-action:pan-y;-webkit-user-select:none;user-select:none;cursor:pointer;will-change:transform}
+.cardbox .cnt{color:var(--mut);font-size:13px;letter-spacing:.5px}
+.cardbox .en{font-size:26px;font-weight:700;line-height:1.35;word-break:break-word}
+.cardbox .zh{font-size:19px;color:var(--mut);border-top:1px solid var(--bd);padding-top:16px;width:100%;animation:zhIn .4s ease both}
+.cardbox .hint{color:var(--mut);font-size:14px;animation:hintPulse 1.8s ease-in-out infinite}
+.chint{text-align:center;color:var(--mut);font-size:13px;padding:4px 0 10px}
+.cardbox.in{animation:cardIn .38s cubic-bezier(.2,.8,.2,1) backwards}
+.cardbox.flip{animation:cardFlip .46s ease-in-out}
+@keyframes cardIn{from{opacity:0;transform:translateY(34px) scale(.92) rotate(2deg)}to{opacity:1;transform:none}}
+@keyframes cardFlip{0%{transform:rotateY(0)}50%{transform:rotateY(90deg)}100%{transform:rotateY(0)}}
+@keyframes zhIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes hintPulse{0%,100%{opacity:.5}50%{opacity:1}}
+.spell{background:var(--hl);color:var(--acc);padding:9px 13px;border-radius:12px;margin:8px 0;font-size:15px;line-height:1.6}.spell s{opacity:.65}.spell b{font-weight:700}
+.spd{margin-left:auto;padding:6px 14px;border-radius:999px;border:1px solid var(--bd);font-size:14px;background:var(--card);color:var(--fg);font-weight:600}
 </style>
 </head>
 <body>
@@ -199,7 +214,7 @@ textarea{border:.5px solid var(--bd);border-radius:24px;padding:12px 18px;min-he
 
 <div class="ov hide" id="col">
   <header><button class="ib" id="bBack" aria-label="返回">←</button><b>我的句库</b><span class="ib"></span></header>
-  <div class="tabs"><button class="tab on" id="tF">收藏</button><button class="tab" id="tR">最近</button></div>
+  <div class="tabs"><button class="tab on" id="tF">收藏</button><button class="tab" id="tR">最近</button><button class="spd" id="spd1" aria-label="语速">1.0x</button></div>
   <div id="lst"></div>
   <div class="lp"><button id="loop">🔁 循环播放</button><button class="g" id="zhT">隐藏中文</button><button class="g" id="bCard">🎴 抽卡</button></div>
 </div>
@@ -232,7 +247,7 @@ textarea{border:.5px solid var(--bd);border-radius:24px;padding:12px 18px;min-he
   <header><button class="ib" id="cBack" aria-label="返回">←</button><b>抽卡</b><span class="ib"></span></header>
   <div class="cwrap"><div class="cardbox" id="cbox"></div></div>
   <div class="chint">← 再来一次　·　会了 →</div>
-  <div class="lp"><button class="g" id="cSay">🔊 再听一次</button><button id="cDrawNext">下一张 ➜</button></div>
+  <div class="lp"><button class="g" id="cSay">🔊 再听一次</button><button class="g" id="spd2" style="flex:.6;white-space:nowrap;padding:11px 4px" aria-label="语速">1.0x</button><button id="cDrawNext">下一张 ➜</button></div>
 </div>
 <div class="mask c hide" id="pmask"><div class="pop" id="pop"></div></div>
 <div class="mask hide" id="mask"><div class="sheet" id="sheet"></div></div>
@@ -267,7 +282,7 @@ function setVoices(list){voices=list;var n=null;try{n=localStorage.getItem("voic
 function pv(){var T=TTSN();if(T&&T.getSupportedVoices){T.getSupportedVoices().then(function(r){setVoices((r.voices||[]).map(function(v,i){return {name:(v.name||v.voiceURI||("voice "+i)),lang:String(v.lang||""),idx:i}}).filter(function(x){return x.lang.replace("_","-").toLowerCase()==="en-us"}));}).catch(function(){});return}try{setVoices(speechSynthesis.getVoices().filter(function(x){return x.lang.replace("_","-")==="en-US"}))}catch(e){}}
 pv();setTimeout(pv,1500);try{speechSynthesis.onvoiceschanged=pv}catch(e){}
 var looping=false,spk=0;
-function webSay(txt,cb){try{var u=new SpeechSynthesisUtterance(txt);u.lang="en-US";u.rate=rate;u.pitch=pitch;if(typeof SpeechSynthesisVoice!=="undefined"&&voice instanceof SpeechSynthesisVoice)u.voice=voice;u.onend=u.onerror=function(){cb()};speechSynthesis.speak(u);}catch(e){cb()}}
+function webSay(txt,cb){try{var u=new SpeechSynthesisUtterance(txt);u.lang="en-US";u.rate=effRate();u.pitch=pitch;if(typeof SpeechSynthesisVoice!=="undefined"&&voice instanceof SpeechSynthesisVoice)u.voice=voice;u.onend=u.onerror=function(){cb()};speechSynthesis.speak(u);}catch(e){cb()}}
 function say(t,done){
   var id=++spk,T=TTSN();try{if(T)T.stop()}catch(e){};try{speechSynthesis.cancel()}catch(e){}
   var toneCfg = TONES[currentTone] || TONES["normal"];
@@ -276,7 +291,7 @@ function say(t,done){
     if(id!==spk)return;if(i>=parts.length){done&&done();return}
     var txt=parts[i++].trim(),more=i<parts.length;
     var after=function(){if(id!==spk)return;setTimeout(next,more?toneCfg.pause:0)};
-    if(T){var o={text:txt,lang:"en-US",rate:rate,pitch:pitch,volume:1};if(voice&&voice.idx!=null)o.voice=voice.idx;T.speak(o).then(after).catch(function(){if(id!==spk)return;webSay(txt,after)});}else webSay(txt,after);
+    if(T){var o={text:txt,lang:"en-US",rate:effRate(),pitch:pitch,volume:1};if(voice&&voice.idx!=null)o.voice=voice.idx;T.speak(o).then(after).catch(function(){if(id!==spk)return;webSay(txt,after)});}else webSay(txt,after);
   })();
 }
 function stopLoop(){looping=false;spk++;var T=TTSN();try{if(T)T.stop()}catch(e){};try{speechSynthesis.cancel()}catch(e){};$("loop").textContent="🔁 循环播放"}
@@ -303,6 +318,7 @@ function aiHtml(r,md,mid){
   }
   
   if(md==="mean")h+='<div class="lb">原句</div>';
+  if(Array.isArray(r.spell)&&r.spell.length)h+='<div class="spell">✏️ 拼写纠正：'+r.spell.filter(function(x){return x&&x.w&&x.r}).map(function(x){return '<s>'+esc(x.w)+'</s> → <b>'+esc(x.r)+'</b>'}).join('，')+'</div>';
   if(r.mine&&r.mine.en)h+='<div class="lb">你的原句</div><p>'+pill(r.mine.en,r.mine.zh)+'</p><p class="zt">'+esc(r.mine.zh)+'</p><div class="lb">更地道的说法</div>';
   
   h += mainCard + '<div class="ai-more">';
@@ -409,9 +425,9 @@ function render(){
 }
 
 var BASE="你是一位美式英语口语老师，学生是中文母语的初学者。只用简单、自然、日常的美式口语（多用缩写，如 gonna、wanna、I'm），不要书面语或复杂语法。只返回 JSON，不要任何其他文字或代码块标记。";
-var P_SAY=BASE+`学生会输入一句话。【最重要】忠实原意：学生想表达什么，英文就说什么。不能删掉任何细节，不能加入学生没说的内容。zh 字段要把 en 老老实实翻回中文，让学生能核对是否和自己的原话一致。如果为了地道改动了说法，在 note 里说明改了哪里、为什么。- 如果是中文：给出最自然的美式口语说法，mine 填 null。- 如果是英文：mine 填学生的原句和它的中文翻译；note 先用中文指出原句的语法或用词问题，再说明新说法为什么更地道；en 给出更地道的说法。格式：{"mine":{"en":"学生原句","zh":"原句的中文意思"}或null,"en":"最自然的一句英文","zh":"这句的中文意思","note":"中文讲解（2-3句）","vocab":[{"w":"关键词或搭配","m":"中文意思"}],"examples":[{"en":"例句","zh":"中文翻译"},{"en":"例句","zh":"中文翻译"}],"replies":["常见的自然回答1","常见的自然回答2"]}`;
-var P_MEAN=BASE+`学生会给你一句英文（或一个词、短语），请讲解它的意思。如果学生给的是中文，就当作想知道英文说法来回答。格式：{"mine":null,"en":"学生给的原句（原样）","zh":"中文意思","note":"用中文讲清楚意思、使用场合和语气（2-3句）","vocab":[{"w":"关键词或搭配","m":"中文意思"}],"examples":[{"en":"例句","zh":"中文翻译"},{"en":"例句","zh":"中文翻译"}],"replies":["常见的自然回答1","常见的自然回答2"]}`;
-var P_CHAT="你是一位友善的美国朋友，正在陪中文母语的初学者聊天练口语。只用简单、自然、日常的美式口语。每次只回一两句英文，常常用一个简单的问题接着聊。学生写中文时，也用英文自然回复。只返回 JSON，不要任何其他文字或代码块标记。"+`fix：更自然的说法必须保持学生原意，不能删减、增加或弱化内容。如果学生刚才写的是英文且有问题，给出更自然的说法和一句中文说明；如果学生写的是中文，给出这句话的英文说法；英文没问题就填 null。格式：{"fix":{"en":"更自然的说法","note":"一句中文说明"}或null,"en":"你的英文回复","zh":"回复的中文意思"}`;
+var P_SAY=BASE+`学生会输入一句话。【最重要】忠实原意：学生想表达什么，英文就说什么。不能删掉任何细节，不能加入学生没说的内容。zh 字段要把 en 老老实实翻回中文，让学生能核对是否和自己的原话一致。如果为了地道改动了说法，在 note 里说明改了哪里、为什么。- 如果是中文：给出最自然的美式口语说法，mine 填 null。- 如果是英文：mine 填学生的原句（保留学生原样）和它的中文翻译；如果原句有拼写错误（包括漏掉的撇号），spell 列出每个拼错的词和正确拼法，没有就填 null；note 先用中文指出原句的语法或用词问题，再说明新说法为什么更地道；en 给出更地道的说法。格式：{"mine":{"en":"学生原句","zh":"原句的中文意思"}或null,"spell":[{"w":"拼错的词","r":"正确拼写"}]或null,"en":"最自然的一句英文","zh":"这句的中文意思","note":"中文讲解（2-3句）","vocab":[{"w":"关键词或搭配","m":"中文意思"}],"examples":[{"en":"例句","zh":"中文翻译"},{"en":"例句","zh":"中文翻译"}],"replies":["常见的自然回答1","常见的自然回答2"]}`;
+var P_MEAN=BASE+`学生会给你一句英文（或一个词、短语），请讲解它的意思。如果学生给的是中文，就当作想知道英文说法来回答。【拼写】如果句子里有拼写错误（包括漏掉的撇号，例如 Youre、dont），en 里要改成正确拼写，只改拼写和标点，不要改措辞；spell 列出每个拼错的词和正确拼法；没有拼写错误 spell 填 null。格式：{"mine":null,"spell":[{"w":"拼错的词","r":"正确拼写"}]或null,"en":"学生给的原句（拼写错误已改正）","zh":"中文意思","note":"用中文讲清楚意思、使用场合和语气（2-3句）","vocab":[{"w":"关键词或搭配","m":"中文意思"}],"examples":[{"en":"例句","zh":"中文翻译"},{"en":"例句","zh":"中文翻译"}],"replies":["常见的自然回答1","常见的自然回答2"]}`;
+var P_CHAT="你是一位友善的美国朋友，正在陪中文母语的初学者聊天练口语。只用简单、自然、日常的美式口语。每次只回一两句英文，常常用一个简单的问题接着聊。学生写中文时，也用英文自然回复。只返回 JSON，不要任何其他文字或代码块标记。"+`fix：更自然的说法必须保持学生原意，不能删减、增加或弱化内容。如果学生刚才写的是英文且有问题，给出更自然的说法和一句中文说明；如果有拼写错误，说明里要明确指出拼错的词和正确拼法；如果学生写的是中文，给出这句话的英文说法；英文没问题就填 null。格式：{"fix":{"en":"更自然的说法","note":"一句中文说明"}或null,"en":"你的英文回复","zh":"回复的中文意思"}`;
 
 var P={zhipu:{text:"glm-5.2",vis:"glm-4.6v-flash"},anthropic:{text:"claude-sonnet-5-5",vis:"claude-sonnet-5-5"}};
 var cfg={prov:"zhipu",key:"",text:"",vis:""};
@@ -515,12 +531,19 @@ $("loop").onclick=function(){if(looping){stopLoop();return}var a=tabNow==="F"?fa
 
 var deck=[],di=0,cur=null,shown=false;function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
 function showCard(){$("cbox").innerHTML='<div class="cnt">'+di+' / '+deck.length+'</div><div class="en">'+esc(cur.en)+'</div>'+(shown?'<div class="zh">'+esc(cur.zh||"（没有中文）")+'</div>':'<div class="hint">点一下卡片查看中文</div>')}
-function draw(){if(!favs.length){cur=null;$("cbox").innerHTML='<div class="empty" style="margin:0">还没有收藏。<br>先收藏几句再来抽卡。</div>';return}if(di>=deck.length){deck=shuffle(favs);di=0;if(deck.length>1&&cur&&deck[0].en===cur.en)deck.push(deck.shift())}cur=deck[di++];shown=false;showCard();say(cur.en)}
-$("cbox").onclick=function(){if(!cur||shown||Date.now()-(+this.dataset.swiped||0)<400)return;shown=true;showCard()};$("cDrawNext").onclick=draw;$("cSay").onclick=function(){if(cur)say(cur.en)};$("bCard").onclick=function(){stopLoop();deck=[];di=0;cur=null;$("card").classList.remove("hide");draw()};$("cBack").onclick=function(){stopLoop();$("card").classList.add("hide")};
+function draw(){if(!favs.length){cur=null;$("cbox").innerHTML='<div class="empty" style="margin:0">还没有收藏。<br>先收藏几句再来抽卡。</div>';return}if(di>=deck.length){deck=shuffle(favs);di=0;if(deck.length>1&&cur&&deck[0].en===cur.en)deck.push(deck.shift())}cur=deck[di++];shown=false;showCard();cAnim("in");say(cur.en)}
+$("cbox").onclick=function(){if(!cur||shown||Date.now()-(+this.dataset.swiped||0)<400)return;shown=true;cAnim("flip");setTimeout(showCard,230)};$("cDrawNext").onclick=draw;$("cSay").onclick=function(){if(cur)say(cur.en)};$("bCard").onclick=function(){stopLoop();deck=[];di=0;cur=null;$("card").classList.remove("hide");draw()};$("cBack").onclick=function(){stopLoop();$("card").classList.add("hide")};
 var cs=null;$("cbox").addEventListener("touchstart",function(e){var t=e.touches[0];cs={x:t.clientX,y:t.clientY,dx:0,on:false}},{passive:true});
 $("cbox").addEventListener("touchmove",function(e){if(!cs)return;var t=e.touches[0],dx=t.clientX-cs.x,dy=t.clientY-cs.y;if(!cs.on){if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)*1.5)cs.on=true;else return}cs.dx=dx;this.style.transition="none";this.style.transform="translateX("+dx+"px) rotate("+dx/25+"deg)"},{passive:true});
 function cEnd(){if(!cs)return;var c=cs,b=$("cbox");cs=null;if(!c.on)return;b.dataset.swiped=Date.now();if(Math.abs(c.dx)>90){b.style.transition="transform .18s,opacity .18s";b.style.transform="translateX("+(c.dx>0?500:-500)+"px)";b.style.opacity="0";setTimeout(function(){if(c.dx<0&&cur)deck.push(cur);b.style.transition="none";b.style.transform="";b.style.opacity="";draw()},180)}else{b.style.transition="transform .2s";b.style.transform=""}}
 $("cbox").addEventListener("touchend",cEnd);$("cbox").addEventListener("touchcancel",cEnd);
+function cAnim(c){var b=$("cbox");b.classList.remove("in","flip");void b.offsetWidth;b.classList.add(c);setTimeout(function(){b.classList.remove(c)},600)}
+var COLSPD=[0.6,0.8,1,1.25,1.5],colMul=1;try{var cm0=parseFloat(localStorage.getItem("colSpd"));if(cm0>0)colMul=cm0}catch(e){}
+function colOn(){return !$("col").classList.contains("hide")||!$("card").classList.contains("hide")}
+function effRate(){return Math.max(0.3,Math.min(2,rate*(colOn()?(colMul||1):1)))}
+function spdShow(){var t=(colMul===1?"1.0":colMul)+"x";$("spd1").textContent=t;$("spd2").textContent="🐢 "+t}
+function spdNext(){var k=COLSPD.indexOf(colMul);colMul=COLSPD[(k+1)%COLSPD.length];try{localStorage.setItem("colSpd",String(colMul))}catch(e){}spdShow();toast("语速 "+(colMul===1?"1.0":colMul)+"x",1200)}
+$("spd1").onclick=spdNext;$("spd2").onclick=spdNext;spdShow();
 
 var IDB_NAME="kouyu_vid", IDB_STORE="videos", IDB_VER=1;
 function idbOpen(){
